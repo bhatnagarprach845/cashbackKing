@@ -1,0 +1,19 @@
+# application.yml
+aws:
+  region: us-east-1
+  s3:
+    bucket-name: your-cashback-bills-bucket
+
+razorpay:
+  key:
+    id: rzp_test_yourKeyId
+    secret: yourKeySecret
+  webhook:
+    secret: yourWebhookSecret
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX
