@@ -1,6 +1,6 @@
 package com.bhatn.cashbackking.controller;
 
-import com.bhatn.cashbackking.service.WalletService;
+import com.bhatn.cashbackking.service.WalletService_del;
 import com.razorpay.Utils;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ public class RazorpayWebhookController {
     @Value("${razorpay.webhook.secret}")
     private String webhookSecret;
 
-    @Autowired private WalletService walletService;
+    @Autowired private WalletService_del walletServiceDel;
 
     @PostMapping
     public ResponseEntity<String> handleRazorpayWebhook(
@@ -40,7 +40,7 @@ public class RazorpayWebhookController {
                         .getJSONObject("entity");
 
                 String payoutId = payoutEntity.getString("id");
-                walletService.confirmPayoutSuccess(payoutId);
+                walletServiceDel.confirmPayoutSuccess(payoutId);
             }
 
             // 3. Handle Payout Failure (e.g., wrong UPI ID)
@@ -49,7 +49,7 @@ public class RazorpayWebhookController {
                         .getJSONObject("payout")
                         .getJSONObject("entity")
                         .getString("id");
-                walletService.handlePayoutFailure(payoutId);
+                walletServiceDel.handlePayoutFailure(payoutId);
             }
 
             return ResponseEntity.ok("Webhook Received");

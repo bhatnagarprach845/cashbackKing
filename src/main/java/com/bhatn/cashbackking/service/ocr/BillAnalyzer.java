@@ -1,33 +1,107 @@
 package com.bhatn.cashbackking.service.ocr;
 
+import com.bhatn.cashbackking.dto.ExtractionResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.textract.TextractClient;
-import software.amazon.awssdk.services.textract.model.AnalyzeExpenseRequest;
-import software.amazon.awssdk.services.textract.model.AnalyzeExpenseResponse;
-import software.amazon.awssdk.services.textract.model.Document;
-import software.amazon.awssdk.services.textract.model.S3Object;
+import software.amazon.awssdk.services.textract.model.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class BillAnalyzer {
     @Autowired
     private TextractClient textractClient;
 
-    public BigDecimal getBillTotal(String bucket, String key) {
+    public ExtractionResult analyze(byte[] imageBytes) {
         AnalyzeExpenseRequest request = AnalyzeExpenseRequest.builder()
-                .document(Document.builder()
-                        .s3Object(S3Object.builder().bucket(bucket).name(key).build())
-                        .build())
+                .document(Document.builder().bytes(SdkBytes.fromByteArray(imageBytes)).build())
                 .build();
 
         AnalyzeExpenseResponse response = textractClient.analyzeExpense(request);
+        return mapResponse(response);
+    }
 
-        // Logic to extract the specific 'TOTAL' field from bill summary
-        return response.expenseDocuments().get(0).summaryFields().stream()
-                .filter(f -> f.type().text().equals("TOTAL"))
-                .map(f -> new BigDecimal(f.valueDetection().text().replaceAll("[^\\d.]", "")))
-                .findFirst().orElse(BigDecimal.ZERO);
+    private ExtractionResult mapResponse(AnalyzeExpenseResponse response) {
+        if (response.expenseDocuments().isEmpty()) {
+            return ExtractionResult.builder().totalAmount(BigDecimal.ZERO).lineItems(new ArrayList<>()).build();
+        }
+
+        ExpenseDocument doc = response.expenseDocuments().get(0);
+        List<ExpenseField> summaryFields = doc.summaryFields();
+
+        String merchant = getField(summaryFields, "VENDOR_NAME");
+        String totalStr = getField(summaryFields, "TOTAL");
+        String dateStr = getField(summaryFields, "INVOICE_RECEIPT_DATE");
+
+        // Map Line Items safely
+        List<ExtractionResult.LineItemDTO> items = doc.lineItemGroups().stream()
+                .flatMap(group -> group.lineItems().stream())
+                .map(this::mapToLineItemDTO)
+                .collect(Collectors.toList());
+
+        return ExtractionResult.builder()
+                .merchantName(merchant != null ? merchant : "UNKNOWN")
+                .totalAmount(parseAmount(totalStr))
+                .purchaseDate(parseDate(dateStr))
+                .lineItems(items)
+                .build();
+    }
+
+    private ExtractionResult.LineItemDTO mapToLineItemDTO(LineItemFields lineItem) {
+        List<ExpenseField> fields = lineItem.lineItemExpenseFields();
+
+        // Textract line item types: ITEM, PRICE, QUANTITY, UNIT_PRICE
+        String description = getField(fields, "ITEM");
+        String priceStr = getField(fields, "PRICE");
+        String qtyStr = getField(fields, "QUANTITY");
+
+        return ExtractionResult.LineItemDTO.builder()
+                .description(description != null ? description : "Unknown Item")
+                .price(parseAmount(priceStr))
+                .quantity(parseQuantity(qtyStr))
+                .build();
+    }
+
+    private Integer parseQuantity(String qty) {
+        if (qty == null) return 1;
+        try {
+            String clean = qty.replaceAll("[^\\d]", "");
+            return clean.isEmpty() ? 1 : Integer.parseInt(clean);
+        } catch (Exception e) {
+            return 1;
+        }
+    } // FIXED: Added missing closing brace
+
+    private String getField(List<ExpenseField> fields, String type) {
+        return fields.stream()
+                .filter(f -> f.type() != null && f.type().text().equals(type))
+                .map(f -> f.valueDetection().text())
+                .findFirst().orElse(null);
+    }
+
+    private BigDecimal parseAmount(String val) {
+        if (val == null) return BigDecimal.ZERO;
+        try {
+            String clean = val.replaceAll("[^\\d.]", "");
+            return clean.isEmpty() ? BigDecimal.ZERO : new BigDecimal(clean);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private LocalDateTime parseDate(String dateStr) {
+        if (dateStr == null) return LocalDateTime.now();
+        try {
+            // Textract often returns YYYY-MM-DD. We add time to satisfy LocalDateTime.
+            return LocalDateTime.parse(dateStr.contains("T") ? dateStr : dateStr + "T00:00:00");
+        } catch (Exception e) {
+            return LocalDateTime.now();
+        }
     }
 }

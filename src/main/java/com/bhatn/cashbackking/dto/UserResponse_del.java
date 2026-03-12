@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class UserResponse {
+public class UserResponse_del {
     private String cognitoId;
     private String email;
     private String upiId;

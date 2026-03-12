@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+public interface TransactionRepository_del extends JpaRepository<Transaction, Long> {
 
     // Fetch the full history for a specific user, sorted by newest first
     List<Transaction> findByUserIdOrderByCreatedAtDesc(String userId);

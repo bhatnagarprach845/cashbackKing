@@ -23,6 +23,8 @@ public class Transaction {
     @Column(nullable = false)
     private String userId; // Cognito ID
 
+    private Long receiptId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
@@ -39,6 +41,21 @@ public class Transaction {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Override
+    public String toString() {
+        return "Transaction{" +
+                "id=" + id +
+                ", userId='" + userId + '\'' +
+                ", receiptId=" + receiptId +
+                ", amount=" + amount +
+                ", type=" + type +
+                ", status=" + status +
+                ", s3Key='" + s3Key + '\'' +
+                ", payoutId='" + payoutId + '\'' +
+                ", createdAt=" + createdAt +
+                '}';
+    }
 
     @PrePersist
     protected void onCreate() {

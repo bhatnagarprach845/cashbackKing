@@ -4,8 +4,8 @@ import com.bhatn.cashbackking.dto.PayoutStatusResponse;
 import com.bhatn.cashbackking.entity.Transaction;
 import com.bhatn.cashbackking.entity.User;
 import com.bhatn.cashbackking.entity.UserWallet;
-import com.bhatn.cashbackking.repository.TransactionRepository;
-import com.bhatn.cashbackking.repository.UserRepository;
+import com.bhatn.cashbackking.repository.TransactionRepository_del;
+import com.bhatn.cashbackking.repository.UserRepository_del;
 import com.bhatn.cashbackking.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +21,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
-    @Autowired private UserRepository userRepo;
-    @Autowired private TransactionRepository txnRepo;
+    @Autowired private UserRepository_del userRepo;
+    @Autowired private TransactionRepository_del txnRepo;
     @Autowired private WalletRepository walletRepo;
 
     @PostMapping("/onboard")
@@ -45,7 +45,7 @@ public class UserController {
 
         // 3. Initialize an empty Wallet for the user if it doesn't exist
         if (!walletRepo.existsById(cognitoId)) {
-            walletRepo.save(new UserWallet(cognitoId, BigDecimal.ZERO, null));
+            walletRepo.save(new UserWallet(cognitoId, BigDecimal.ZERO, null, null));
         }
 
         return ResponseEntity.ok(Map.of("message", "User onboarded successfully with UPI: " + upiId));
