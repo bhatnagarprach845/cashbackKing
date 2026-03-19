@@ -12,6 +12,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor @AllArgsConstructor
 @Builder
 public class CashbackTransaction {
+
+    @Column(unique = true)
+    private String payoutId; // Store the "pout_..." ID from Razorpay
     @Override
     public String toString() {
         return "CashbackTransaction{" +
@@ -29,7 +32,7 @@ public class CashbackTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "receipt_id", nullable = true)
     private Long receiptId; // Links back to the specific receipt that earned this
 
     @Column(nullable = false)
@@ -52,8 +55,10 @@ public class CashbackTransaction {
     }
 
     public enum TransactionStatus {
-        PENDING, COMPLETED, FAILED,
-        REDEEMED,   // This amount was part of a ₹30+ payout
+        PENDING, COMPLETED,  // Bill uploaded successfully
+        REDEEMED,   // User requested payout (Pending)
+        SETTLED,    // Money hit user's bank account (Success)
+        FAILED,      // Bank transfer failed (Money refunded to wallet)   // This amount was part of a ₹30+ payout
         REVERSED
     }
 }

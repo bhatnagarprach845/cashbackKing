@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 const FileUpload = (props) => {
     const [file, setFile] = useState(null);
@@ -20,13 +21,19 @@ const FileUpload = (props) => {
     const onUpload = async () => {
         if (!file) return alert("Please select a file first!");
 
+
         const formData = new FormData();
         formData.append("file", file);
         setStatus("Uploading...");
 
        try {
+            const session = await fetchAuthSession();
+           const token = session.tokens?.idToken?.toString();
            const response = await axios.post("http://localhost:8080/api/v1/receipts/upload-local", formData, {
-               headers: { "Content-Type": "multipart/form-data" }
+               headers: {
+                               'Authorization': `Bearer ${token}`,
+                               'Content-Type': 'multipart/form-data'
+                           }
            });
 
            setStatus("Success! Reward added.");

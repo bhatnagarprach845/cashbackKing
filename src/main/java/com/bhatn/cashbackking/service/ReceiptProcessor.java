@@ -84,7 +84,7 @@ public class ReceiptProcessor {
 
         // 2. 3% Cashback Calculation
         BigDecimal cashbackAmount = receipt.getTotalAmount()
-                .multiply(new BigDecimal("0.03"))
+                .multiply(new BigDecimal("1"))
                 .setScale(2, RoundingMode.HALF_UP);
 
         // 3. Update Wallet

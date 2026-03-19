@@ -18,11 +18,17 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(nullable = false, unique = true)
+    private String name;
+
     @Column(length = 100)
     private String upiId; // User's VPA (e.g., name@okaxis)
 
     @Column(length = 50)
     private String razorpayContactId; // Required for RazorpayX Payouts
+
+    // Field for Razorpay optimization we discussed earlier
+    private String razorpayFundAccountId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -20,6 +20,9 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     // 1. User History: For the "My Receipts" screen in your app
     List<Receipt> findByUserIdOrderByPurchaseDateDesc(String userId);
 
+        // This allows you to fetch all receipts for a specific user
+    List<Receipt> findByUserId(String userId);
+
     // 2. Fraud Prevention: Check if the exact same receipt was uploaded already
     // This is a "Three-Point Check" (Merchant + Date + Amount)
     boolean existsByMerchantNameAndTotalAmountAndPurchaseDate(

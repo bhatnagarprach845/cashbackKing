@@ -1,6 +1,7 @@
 package com.bhatn.cashbackking.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -31,6 +32,7 @@ public class Receipt {
     private ReceiptStatus status = ReceiptStatus.UPLOADED;
 
     @OneToMany(mappedBy = "receipt", cascade = CascadeType.ALL)
+    @JsonManagedReference // This side will be serialized
     private List<ReceiptItem> items = new ArrayList<>();
 
     private LocalDateTime createdAt;

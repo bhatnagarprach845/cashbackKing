@@ -2,22 +2,24 @@ package com.bhatn.cashbackking.controller;
 
 import com.bhatn.cashbackking.dto.ExtractionResult;
 import com.bhatn.cashbackking.dto.PayoutStatusResponse;
-import com.bhatn.cashbackking.entity.Receipt;
-import com.bhatn.cashbackking.entity.ReceiptItem;
-import com.bhatn.cashbackking.entity.ReceiptStatus;
-import com.bhatn.cashbackking.entity.UserWallet;
+import com.bhatn.cashbackking.entity.*;
+import com.bhatn.cashbackking.repository.CashbackTransactionRepository;
 import com.bhatn.cashbackking.repository.ReceiptRepository;
+import com.bhatn.cashbackking.repository.UserRepository;
 import com.bhatn.cashbackking.repository.WalletRepository;
 import com.bhatn.cashbackking.service.ReceiptProcessor;
+import com.bhatn.cashbackking.service.UserService;
 import com.bhatn.cashbackking.service.WalletService;
 import com.bhatn.cashbackking.service.ocr.BillAnalyzer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,7 +40,11 @@ public class ReceiptController {
     private final ReceiptProcessor receiptProcessor;
     private final ReceiptRepository receiptRepository;
     private final WalletRepository walletRepository; // Added for Payout Status
+    private final UserRepository userRepository; // Added for Payout Status
+
+    private final CashbackTransactionRepository transactionRepository;
     private final BillAnalyzer billAnalyzer;
+    private final UserService userService;
 
     @Autowired
     private WalletService walletService; // Inject your new service
@@ -84,6 +90,8 @@ public class ReceiptController {
 
         String userId = jwt.getClaimAsString("sub");
 
+        log.info("User {} is uploading a receipt", userId);
+
         try {
             ExtractionResult result = billAnalyzer.analyze(file.getBytes());
 
@@ -123,19 +131,60 @@ public class ReceiptController {
         }
     }
 
+    @PostMapping("/sync-profile")
+    public ResponseEntity<User> syncProfile(
+            @RequestBody Map<String, String> profileData,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String cognitoId = jwt.getClaimAsString("sub");
+        String email = jwt.getClaimAsString("email");
+
+        // Find existing user or create a new one
+        User user = userRepository.findById(cognitoId)
+                .orElse(User.builder().cognitoId(cognitoId).build());
+
+        // Update fields from the request
+        user.setEmail(email);
+        user.setName(profileData.get("name"));
+        user.setUpiId(profileData.get("upiId"));
+
+        return ResponseEntity.ok(userRepository.save(user));
+    }
+
     /**
      * 3. Payout Status (Integrated from BillController)
      * Fetches current balance and ₹30 threshold progress.
      */
+    /**
+     * PAYOUT STATUS (Real-time Dashboard Data)
+     */
     @GetMapping("/payout-status")
-    public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt, String userIdForUser) {
+
         String userId = jwt.getClaimAsString("sub");
 
+        // Fallback: Sometimes Cognito puts the ID in "username" or "uid"
+        if (userId == null) {
+            userId = jwt.getClaimAsString("username");
+        }
+
+        // 2. CRITICAL: If it's still null, we shouldn't hit the DB
+        if (userId == null) {
+            log.error("JWT claims: {}", jwt.getClaims()); // This will print all claims so you can see the real key
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        // 3. Now it is safe to query the repositories
+        User user = userRepository.findById(userId).orElse(null);
+
+        String finalUserId = userId;
         UserWallet wallet = walletRepository.findById(userId)
                 .orElseGet(() -> UserWallet.builder()
-                        .userId(userId)
+                        .userId(finalUserId)
                         .currentBalance(BigDecimal.ZERO)
                         .build());
+
+        // Fetching real history from DB
+        List<CashbackTransaction> history = transactionRepository.findByUserIdOrderByProcessedAtDesc(userId);
 
         BigDecimal threshold = new BigDecimal("30.00");
         BigDecimal needed = threshold.subtract(wallet.getCurrentBalance()).max(BigDecimal.ZERO);
@@ -143,34 +192,53 @@ public class ReceiptController {
         PayoutStatusResponse response = PayoutStatusResponse.builder()
                 .currentBalance(wallet.getCurrentBalance())
                 .threshold(threshold)
-                .statusMessage("₹" + needed + " more needed for payout")
-                .recentTransactions(Collections.emptyList()) // Connect to TxnRepo later
+                .statusMessage(wallet.getCurrentBalance().compareTo(threshold) >= 0
+                        ? "You are eligible for payout!"
+                        : "₹" + needed + " more needed for payout")
+                .upiId(user != null ? user.getUpiId() : null) // THIS IS THE TRIGGER FOR THE MODAL
+                .recentTransactions(history)
                 .build();
 
         return ResponseEntity.ok(response);
     }
-
+    /**
+     * REDEEM METHOD (Improved for Partial & Full Redemption)
+     */
+    @Transactional
     @PostMapping("/redeem")
-    public ResponseEntity<Map<String, String>> redeem(@AuthenticationPrincipal Jwt jwt) {
-        // 1. Get the user ID from the token
-        String userId = (jwt != null) ? jwt.getClaimAsString("sub") : "dev-user";
+    public ResponseEntity<Map<String, String>> redeem(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal Jwt jwt) {
 
-        // 2. Security Check: Verify balance before redeeming
-        UserWallet wallet = walletRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+        String userId = jwt.getClaimAsString("sub");
+        BigDecimal minThreshold = new BigDecimal("30.00"); // Define the limit
 
-        if (wallet.getCurrentBalance().compareTo(new BigDecimal("30.00")) < 0) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Insufficient balance. You need at least ₹30.00"
-            ));
+        try {
+            UserWallet wallet = walletRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+            // Determine requested amount
+            BigDecimal amountToRedeem = request.get("amount") != null
+                    ? new BigDecimal(request.get("amount").toString())
+                    : wallet.getCurrentBalance();
+
+            // STRICT ENFORCEMENT: Check if the request is below ₹30
+            if (amountToRedeem.compareTo(minThreshold) < 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                        "error", "Minimum redemption amount is ₹30. Current request: ₹" + amountToRedeem
+                ));
+            }
+
+            // Standard balance check
+            if (wallet.getCurrentBalance().compareTo(amountToRedeem) < 0) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Insufficient balance"));
+            }
+
+            walletService.redeemCashback(userId, amountToRedeem);
+            return ResponseEntity.ok(Map.of("message", "Success! ₹" + amountToRedeem + " initiated."));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
-
-        // 3. Trigger the redemption logic we wrote in WalletService
-        walletService.redeemCashback(userId);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Payout successful! Your balance has been reset.",
-                "status", "REDEEMED"
-        ));
     }
 }

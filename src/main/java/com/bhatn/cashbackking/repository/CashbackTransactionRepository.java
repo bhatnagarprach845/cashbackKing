@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CashbackTransactionRepository extends JpaRepository<CashbackTransaction, Long> {
@@ -30,6 +31,9 @@ public interface CashbackTransactionRepository extends JpaRepository<CashbackTra
             "GROUP BY t.userId ORDER BY total DESC")
     List<Object[]> getTopEarners();
 
+    // In CashbackTransactionRepository.java
+    List<CashbackTransaction> findByStatus(CashbackTransaction.TransactionStatus status);
+
     /**
      * Calculate the "Live" balance for a user based on transactions
      * that haven't been redeemed yet.
@@ -40,4 +44,9 @@ public interface CashbackTransactionRepository extends JpaRepository<CashbackTra
 
     // Add this line to fix the error in WalletService
     List<CashbackTransaction> findByUserIdAndStatus(String userId, CashbackTransaction.TransactionStatus status);
+
+    Optional<CashbackTransaction> findByPayoutId(String payoutId);
+
+
+
 }

@@ -1,5 +1,6 @@
 package com.bhatn.cashbackking.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -32,5 +33,6 @@ public class ReceiptItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receipt_id")
+    @JsonBackReference // This side will be ignored during serialization
     private Receipt receipt;
 }

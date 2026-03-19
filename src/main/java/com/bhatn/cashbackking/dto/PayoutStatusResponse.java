@@ -1,6 +1,6 @@
 package com.bhatn.cashbackking.dto;
 
-import com.bhatn.cashbackking.entity.Transaction;
+import com.bhatn.cashbackking.entity.CashbackTransaction;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -12,7 +12,8 @@ public class PayoutStatusResponse {
     private BigDecimal currentBalance;
     private BigDecimal threshold; // Hardcoded to 30.00
     private String statusMessage; // e.g., "₹5.00 more needed for payout"
-    private List<TransactionDTO> recentTransactions;
+    private List<CashbackTransaction> recentTransactions;
+    private String upiId;
 
     @Data
     @Builder

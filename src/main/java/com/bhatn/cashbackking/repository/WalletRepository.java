@@ -10,6 +10,8 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 
+
+
 @Repository
 public interface WalletRepository extends JpaRepository<UserWallet, String> {
 
