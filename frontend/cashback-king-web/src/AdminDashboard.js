@@ -10,11 +10,18 @@ const AdminDashboard = () => {
     const [userDetails, setUserDetails] = useState(null);
     const [selectedReceipt, setSelectedReceipt] = useState(null);
 
+    // NEW STATES FOR ANIMATION
+    const [animatingBalance, setAnimatingBalance] = useState(null);
+
     // Initial load: Fetch Wallets and Payouts
-    useEffect(() => {
+    const fetchWallets = () => {
         axios.get("http://localhost:8080/api/v1/admin/wallets")
             .then(res => setWallets(res.data))
             .catch(err => console.error("Admin access denied", err));
+    };
+
+    useEffect(() => {
+        fetchWallets();
 
         axios.get("http://localhost:8080/api/v1/admin/payouts")
             .then(res => setPayouts(res.data))
@@ -42,9 +49,56 @@ const AdminDashboard = () => {
         }
     }, [viewMode, selectedUser]);
 
+    // Unified Animation Function
+    const animateValue = (start, end, duration, setter) => {
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const current = Math.floor(progress * (end - start) + start);
+            setter(current);
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    };
+
     const handleUserClick = (userId, fullName) => {
         setSelectedUser({ id: userId, name: fullName });
         setViewMode('profile');
+    };
+
+    const handlePayout = async (userId, amount) => {
+        if (!window.confirm(`Are you sure you want to pay ₹${amount} to this user?`)) return;
+
+        try {
+            const res = await axios.post(`http://localhost:8080/api/v1/admin/payouts/initiate/${userId}`, {
+                amount: amount
+            });
+
+            console.log("Payout initiated:", res.data);
+
+            // Start the countdown animation from current amount to 0 over 1 second
+            animateValue(amount, 0, 1000, setAnimatingBalance);
+
+            // 2. IMMEDIATE STATE UPDATE:
+                    // Force the local wallets state to 0 so it doesn't "jump back"
+                    setWallets(prevWallets => prevWallets.map(w =>
+                        w.userId === userId ? { ...w, currentBalance: 0 } : w
+                    ));
+            alert("Success! Payout ID: " + (res.data.id || res.data));
+
+            // Refresh the actual database values after the animation finishes
+            setTimeout(() => {
+                fetchWallets();
+                setAnimatingBalance(null);
+            }, 1200);
+
+        } catch (err) {
+            console.error("Payout failed", err);
+            alert("Error: " + (err.response?.data || "Could not reach server"));
+        }
     };
 
     const handleBack = () => {
@@ -74,15 +128,10 @@ const AdminDashboard = () => {
         window.location.href = "http://localhost:8080/api/v1/admin/wallets/export";
     };
 
-    if (viewMode === 'list' && wallets.length === 0) {
-        return <p style={{ color: 'white', textAlign: 'center' }}>Loading Admin Dashboard...</p>;
-    }
-
     return (
         <div style={styles.adminContainer}>
             <h2 style={{ color: '#28a745' }}>System Overview (Admin)</h2>
 
-            {/* DRILL DOWN VIEW (Profile & Receipts) */}
             {viewMode !== 'list' && selectedUser && (
                 <div style={styles.detailView}>
                     <button onClick={handleBack} style={styles.backBtn}>← Back to Overview</button>
@@ -99,7 +148,42 @@ const AdminDashboard = () => {
                             <p><strong>Email:</strong> {userDetails.email}</p>
                             <p><strong>UPI ID:</strong> {userDetails.upiId}</p>
                             <p><strong>Cognito ID:</strong> {userDetails.cognitoId}</p>
-                            <p><strong>Razorpay Fund Account:</strong> {userDetails.razorpayFundAccountId || 'Not Created'}</p>
+
+                            {(() => {
+                                const userWallet = wallets.find(w => String(w.userId) === String(selectedUser.id));
+                                const balance = userWallet ? userWallet.currentBalance : 0;
+
+                                return (
+                                    <>
+                                        <p><strong>Current Wallet Balance:</strong>
+                                            <span style={{
+                                                color: animatingBalance !== null ? '#dc3545' : '#28a745',
+                                                fontWeight: 'bold',
+                                                fontSize: '1.2em',
+                                                marginLeft: '10px'
+                                            }}>
+                                                ₹{animatingBalance !== null ? animatingBalance : balance.toFixed(2)}
+                                            </span>
+                                        </p>
+                                        <p><strong>Razorpay Fund Account:</strong> {userDetails.razorpayFundAccountId || 'Not Created'}</p>
+
+                                        <button
+                                            onClick={() => handlePayout(selectedUser.id, balance)}
+                                            style={{
+                                                ...styles.payoutBtn,
+                                                width: '100%',
+                                                marginTop: '20px',
+                                                padding: '15px',
+                                                backgroundColor: balance > 0 ? '#28a745' : '#555',
+                                                cursor: balance > 0 ? 'pointer' : 'not-allowed'
+                                            }}
+                                            disabled={balance <= 0}
+                                        >
+                                            💸 Initiate Razorpay Payout (₹{balance.toFixed(2)})
+                                        </button>
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
 
@@ -237,6 +321,7 @@ const AdminDashboard = () => {
     );
 };
 
+// ... keep your existing styles object ...
 const styles = {
     adminContainer: { marginTop: '40px', padding: '30px', backgroundColor: '#1a1a1a', borderRadius: '12px', minHeight: '80vh' },
     subTitle: { color: '#ccc', borderBottom: '1px solid #444', paddingBottom: '10px', marginTop: '30px' },

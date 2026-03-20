@@ -7,14 +7,15 @@ import com.bhatn.cashbackking.repository.CashbackTransactionRepository;
 import com.bhatn.cashbackking.repository.ReceiptRepository;
 import com.bhatn.cashbackking.repository.UserRepository;
 import com.bhatn.cashbackking.repository.WalletRepository;
+import com.bhatn.cashbackking.service.payment_del.PayoutService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -28,10 +29,33 @@ public class AdminController {
 
     private final CashbackTransactionRepository transactionRepository;
 
+    private final PayoutService payoutService; // Inject the service
+
     @GetMapping("/transactions")
     public List<CashbackTransaction> getAllTransactions() {
         // This will return everything: COMPLETED (earnings) and REDEEMED (payouts)
         return transactionRepository.findAll();
+    }
+
+    @PostMapping("/payouts/initiate/{userId}")
+    public ResponseEntity<String> initiatePayout(@PathVariable String userId, @RequestBody Map<String, BigDecimal> payload) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        BigDecimal amount = payload.get("amount");
+
+        // Call your PayoutService logic
+        payoutService.triggerPayout(user, amount);
+
+        // 2. CRITICAL: Update the User's Wallet in the DB
+        Optional<UserWallet> wallet = walletRepository.findByUserId(userId);
+        if (wallet.isPresent()) {
+            wallet.get().setCurrentBalance(BigDecimal.ZERO); // Reset to 0
+            wallet.get().setLastUpdated(LocalDateTime.now());
+            walletRepository.save(wallet.get());
+        }
+
+        return ResponseEntity.ok("Payout initiated successfully");
     }
 
     @GetMapping("/payouts")

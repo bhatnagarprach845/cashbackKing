@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/webhooks/razorpay")
-public class RazorpayWebhookController {
+public class RazorpayWebhookController_del {
 
-    @Value("${razorpay.webhook.secret}")
+    /*@Value("${razorpay.webhook.secret}")
     private String webhookSecret;
 
     @Autowired
@@ -52,5 +52,5 @@ public class RazorpayWebhookController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
+    }*/
 }
