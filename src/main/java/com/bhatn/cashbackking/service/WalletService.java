@@ -5,11 +5,11 @@ import com.bhatn.cashbackking.entity.UserWallet;
 import com.bhatn.cashbackking.repository.CashbackTransactionRepository;
 import com.bhatn.cashbackking.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +19,7 @@ public class WalletService {
     private final CashbackTransactionRepository transactionRepository;
 
     @Transactional
-    public void redeemCashback(String userId, BigDecimal amountToRedeem) {
+    public ResponseEntity<String> redeemCashback(String userId, BigDecimal amountToRedeem) {
         // 1. Lock the wallet for update
         UserWallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
@@ -33,18 +33,20 @@ public class WalletService {
         CashbackTransaction payoutRecord = new CashbackTransaction();
         payoutRecord.setUserId(userId);
         payoutRecord.setAmountAwarded(amountToRedeem.negate()); // Store as negative to show it's a withdrawal
-        payoutRecord.setStatus(CashbackTransaction.TransactionStatus.REDEEMED);
+        payoutRecord.setStatus(CashbackTransaction.TransactionStatus.PENDING);
+        //payoutRecord.setStatus(CashbackTransaction.TransactionStatus.REDEEMED);
         payoutRecord.setProcessedAt(java.time.LocalDateTime.now());
         transactionRepository.save(payoutRecord);
+        return ResponseEntity.ok("Request sent for Admin approval.");
 
-        // 4. Update the Wallet Balance (Subtract ONLY the requested amount)
+       /* // 4. Update the Wallet Balance (Subtract ONLY the requested amount)
         BigDecimal newBalance = wallet.getCurrentBalance().subtract(amountToRedeem);
         wallet.setCurrentBalance(newBalance);
         wallet.setLastUpdated(java.time.LocalDateTime.now());
         walletRepository.save(wallet);
 
         // Note: We no longer need to loop through and "Settle" old COMPLETED transactions
-        // because the currentBalance now correctly tracks the running total.
+        // because the currentBalance now correctly tracks the running total.*/
     }
     @Transactional
     public void confirmPayoutSuccess(String payoutId) {

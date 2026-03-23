@@ -44,8 +44,16 @@ public class AdminController {
 
         BigDecimal amount = payload.get("amount");
 
-        // Call your PayoutService logic
-        payoutService.triggerPayout(user, amount);
+        String rzpId = payoutService.triggerPayout(user, amount);
+
+        // Create a record so the Webhook knows what this is
+        CashbackTransaction tx = new CashbackTransaction();
+        tx.setUserId(userId);
+        tx.setAmountAwarded(amount);
+        tx.setStatus(CashbackTransaction.TransactionStatus.APPROVED);
+        tx.setRazorpayPayoutId(rzpId);
+        tx.setProcessedAt(LocalDateTime.now());
+        transactionRepository.save(tx);
 
         // 2. CRITICAL: Update the User's Wallet in the DB
         Optional<UserWallet> wallet = walletRepository.findByUserId(userId);
@@ -55,18 +63,48 @@ public class AdminController {
             walletRepository.save(wallet.get());
         }
 
-        return ResponseEntity.ok("Payout initiated successfully");
+        return ResponseEntity.ok("Payout initiated successfully" + rzpId);
     }
+    @PostMapping("/payouts/approve/{requestId}")
+    public ResponseEntity<String> approvePayout(@PathVariable Long requestId) {
+        CashbackTransaction req = transactionRepository.findById(requestId).orElseThrow();
+        User user = userRepository.findById(req.getUserId()).orElseThrow();
 
+        BigDecimal positiveAmount = req.getAmountAwarded().abs();
+        // 1. Call Razorpay
+        String rzpPayoutId = payoutService.triggerPayout(user, positiveAmount);
+
+        // 2. CRITICAL: Deduct the amount from the actual Wallet table in the DB
+        UserWallet wallet = walletRepository.findByUserId(req.getUserId())
+                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+        // Subtract the absolute amount from the current balance
+        BigDecimal newBalance = wallet.getCurrentBalance().subtract(req.getAmountAwarded().abs());
+        wallet.setCurrentBalance(newBalance);
+        wallet.setLastUpdated(LocalDateTime.now());
+        walletRepository.save(wallet);
+
+        // 3. Update status to APPROVED (Wait for Webhook for SUCCESS)
+        req.setStatus(CashbackTransaction.TransactionStatus.APPROVED);
+        req.setRazorpayPayoutId(rzpPayoutId);
+        req.setProcessedAt(LocalDateTime.now());
+        transactionRepository.save(req);
+
+        return ResponseEntity.ok("Payout initiated with Razorpay ID: " + rzpPayoutId + " and New Balance: " + newBalance);
+    }
     @GetMapping("/payouts")
     public List<PayoutDTO> getRedeemedHistory() {
+
+        // 1. Fetch BOTH statuses so no request is missed
+        List<CashbackTransaction.TransactionStatus> actionableStatuses =
+                List.of(CashbackTransaction.TransactionStatus.PENDING, CashbackTransaction.TransactionStatus.REDEEMED);
         // This fetches only the "REDEEMED" rows for the Admin
-        List<CashbackTransaction> redemptions = transactionRepository.findByStatus(CashbackTransaction.TransactionStatus.REDEEMED);
+        List<CashbackTransaction> redemptions = transactionRepository.findByStatusIn(actionableStatuses);
         return redemptions.stream().map(tx -> {
-            // Find the user to get their name
             Optional<String> fullname = userRepository.findById(tx.getUserId()).map(User::getName);
 
             return PayoutDTO.builder()
+                    .id(tx.getId())
                     .userId(tx.getUserId())
                     .userName(fullname.orElse( "Unknown User"))
                     .amountAwarded(tx.getAmountAwarded())
@@ -155,5 +193,12 @@ public class AdminController {
         return userRepository.findById(userId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/users/{userId}/transactions")
+    public ResponseEntity<List<CashbackTransaction>> getUserTransactionHistory(@PathVariable String userId) {
+        // This should return both COMPLETED (earnings) and SETTLED/APPROVED (payouts)
+        List<CashbackTransaction> history = transactionRepository.findByUserIdOrderByProcessedAtDesc(userId);
+        return ResponseEntity.ok(history);
     }
 }

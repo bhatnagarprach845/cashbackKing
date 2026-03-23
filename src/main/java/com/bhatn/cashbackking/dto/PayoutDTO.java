@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 public class PayoutDTO {
     private String userId;
+    private Long id;
     private String userName; // This is what we're adding
     private BigDecimal amountAwarded;
     private LocalDateTime processedAt;

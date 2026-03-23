@@ -19,6 +19,8 @@ public interface CashbackTransactionRepository extends JpaRepository<CashbackTra
     // 1. Basic lookup for a specific user's history
     List<CashbackTransaction> findByUserIdOrderByProcessedAtDesc(String userId);
 
+    List<CashbackTransaction> findByStatusIn(List<CashbackTransaction.TransactionStatus> statuses);
+
     // 2. Audit check: Find the transaction associated with a specific receipt
     CashbackTransaction findByReceiptId(Long receiptId);
 
@@ -46,6 +48,8 @@ public interface CashbackTransactionRepository extends JpaRepository<CashbackTra
     List<CashbackTransaction> findByUserIdAndStatus(String userId, CashbackTransaction.TransactionStatus status);
 
     Optional<CashbackTransaction> findByPayoutId(String payoutId);
+
+    Optional<CashbackTransaction> findByRazorpayPayoutId(String razorpayPayoutId);
 
 
 

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
-import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -77,8 +76,11 @@ public class PayoutService {
         }
     }*/
 
-    // This is where your code goes!
-    public void triggerPayout(User user, BigDecimal amount) {
+    public String triggerPayout(User user, BigDecimal amount) {
+        // 1. Validation Check: Razorpay minimum is 100 paise (₹1.00)
+        if (amount == null || amount.compareTo(BigDecimal.ONE) < 0) {
+            throw new RuntimeException("Payout failed: Minimum amount must be at least ₹1.00");
+        }
         try {
             // Step 1 & 2: Get or Create the mapping
             String fundId = getOrCreateFundAccountId(user);
@@ -94,7 +96,10 @@ public class PayoutService {
 
             JSONObject response = postToRazorpay(BASE_URL + "/payouts", payoutRequest);
             System.out.println("Payout initiated. ID: " + response.getString("id"));
+            String rzpPayoutId = response.getString("id");
+            System.out.println("Payout initiated. ID: " + rzpPayoutId);
 
+            return rzpPayoutId; // Return the ID to be saved in the database
         } catch (HttpStatusCodeException e) {
             System.err.println("Razorpay Error Body: " + e.getResponseBodyAsString());
             throw new RuntimeException("Razorpay says: " + e.getResponseBodyAsString());

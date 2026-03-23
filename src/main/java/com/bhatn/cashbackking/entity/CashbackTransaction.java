@@ -49,16 +49,16 @@ public class CashbackTransaction {
 
     @Column(length = 500)
     private String remarks; // e.g., "Bonus for first upload" or "Standard 1% cashback"
-
-    public enum TransactionType {
-        CASHBACK, PAYOUT
-    }
+    @Column(length = 500)
+    private String razorpayPayoutId; // e.g., "Bonus for first upload" or "Standard 1% cashback"
 
     public enum TransactionStatus {
-        PENDING, COMPLETED,  // Bill uploaded successfully
+        PENDING, // User requested, Admin hasn't seen it yet
+        COMPLETED,  // Bill uploaded successfully
         REDEEMED,   // User requested payout (Pending)
-        SETTLED,    // Money hit user's bank account (Success)
-        FAILED,      // Bank transfer failed (Money refunded to wallet)   // This amount was part of a ₹30+ payout
-        REVERSED
+        SETTLED,    // // Webhook confirmed success - Money hit user's bank account (Success)
+        FAILED,      // // Webhook confirmed failure - Bank transfer failed (Money refunded to wallet)   // This amount was part of a ₹30+ payout
+        REVERSED,
+        APPROVED // Admin clicked 'Approve', sent to Razorpay
     }
 }
