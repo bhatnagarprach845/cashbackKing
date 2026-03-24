@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
+// 1. Centralized URL Configuration
+const HOST = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const BASE_URL = `${HOST}/api/v1/receipts`; // Most dashboard calls go to receipts path
 const UPI_REGEX = /^[\w.-]+@[\w.-]+$/;
 
 const Dashboard = ({ refreshTrigger, username }) => {
@@ -18,7 +21,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
             const token = session.tokens?.idToken?.toString();
             if (!token) return;
 
-            const res = await axios.get("http://localhost:8080/api/v1/receipts/payout-status", {
+            const res = await axios.get(`${BASE_URL}/payout-status`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setData(res.data);
@@ -54,7 +57,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            await axios.post("http://localhost:8080/api/v1/receipts/sync-profile", profileForm, {
+            await axios.post(`${BASE_URL}/sync-profile`, profileForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setShowProfileModal(false);
@@ -77,7 +80,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            const res = await axios.post("http://localhost:8080/api/v1/receipts/redeem",
+            const res = await axios.post(`${BASE_URL}/redeem`,
                 { amount: amountToSend },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

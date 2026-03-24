@@ -35,13 +35,19 @@ const FileUpload = (props) => {
                                'Content-Type': 'multipart/form-data'
                            }
            });
+            const receiptStatus = response.data.status;
+           if (receiptStatus === "REJECTED") {
+                       setStatus("Duplicate Detected! This bill has already been rewarded.");
+                   } else if (receiptStatus === "PROCESSED") {
+                       setStatus("Success! Reward added to your wallet.");
+                       if (props.onUploadSuccess) {
+                           props.onUploadSuccess();
+                       }
+                   } else {
+                       setStatus("Bill processed with issues. Check history.");
+                   }
 
-           setStatus("Success! Reward added.");
 
-           // Notify the parent (App.js) to refresh the dashboard
-           if (props.onUploadSuccess) {
-               props.onUploadSuccess();
-           }
        } catch (error) {
            setStatus("Failed to upload.");
        }

@@ -110,12 +110,51 @@ public class ReceiptProcessor {
     }
 
     private boolean isDuplicate(Receipt receipt) {
-        return receiptRepository.existsByMerchantNameAndTotalAmountAndPurchaseDate(
-                receipt.getMerchantName(),
-                receipt.getTotalAmount(), receipt.getPurchaseDate()
-        );
-    }
+        // If the receipt has no items, we can't do a deep check,
+        // so we fall back to a header-only check or return false.
+        if (receipt.getItems() == null || receipt.getItems().isEmpty()) {
+            log.info("Prachi --No receipt items --");
+            return receiptRepository.existsByMerchantNameAndTotalAmountAndPurchaseDate(
+                    receipt.getMerchantName(),
+                    receipt.getTotalAmount(),
+                    receipt.getPurchaseDate()
+            );
+        }
 
+        for (ReceiptItem newItem : receipt.getItems()) {
+            // We check if THIS specific item has been seen before
+            // on a receipt with the same Merchant, Amount, and Date.
+            boolean itemWasSeenBefore = receiptRepository.existsByDeepCheck(
+                    receipt.getId(), // <--- Pass the ID here
+                    receipt.getMerchantName(),
+                    receipt.getTotalAmount(),
+                    receipt.getPurchaseDate(),
+                    newItem.getDescription(),
+                    newItem.getUnitPrice()
+            );
+            log.info("Prachi checking for the item -- {}, check itemWasSeenBefore {}" , newItem.getDescription(), itemWasSeenBefore);
+
+            // If even ONE item in this receipt is NEW (not seen before),
+            // then this is likely a unique receipt.
+
+            if (!itemWasSeenBefore) {
+                log.info("Prachi itemWasSeenBefore {} : with below data : receipt.getMerchantName() : {},\n" +
+                                "                    receipt.getTotalAmount() : {},\n" +
+                                "                    receipt.getPurchaseDate() : {},\n" +
+                                "                    newItem.getDescription() : {},\n" +
+                                "                    newItem.getUnitPrice() : {}" , itemWasSeenBefore, receipt.getMerchantName(),
+                        receipt.getTotalAmount(),
+                        receipt.getPurchaseDate(),
+                        newItem.getDescription(),
+                        newItem.getUnitPrice());
+                return false;
+            }
+        }
+
+        // If the loop finishes, it means EVERY item in this receipt
+        // has been submitted before for this merchant/amount.
+        return true;
+    }
     private void triggerPayoutNotification(UserWallet wallet) {
         log.info("User {} is eligible for payout! Current Balance: ₹{}",
                 wallet.getUserId(), wallet.getCurrentBalance());

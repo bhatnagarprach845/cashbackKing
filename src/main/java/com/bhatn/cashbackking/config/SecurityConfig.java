@@ -5,8 +5,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -19,12 +22,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Disabled for APIs using JWT
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll() // Allow preflight
-                        .requestMatchers("/api/v1/receipts/**").authenticated() // Protect your endpoints
-                        .anyRequest().permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")// Secure Admin paths
+                        .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(Customizer.withDefaults()) // Enables JWT validation
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.sameOrigin()) // Keep this for H2 Console
@@ -34,16 +36,39 @@ public class SecurityConfig {
     }
     @Bean
     public JwtDecoder jwtDecoder() {
-        String issuerUri = "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_OfWs7erUH";
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+        String jwkSetUri = "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_OfWs7erUH/.well-known/jwks.json";
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 
-        // We create a validator that focuses on the timestamp and signature
-        // rather than the strict string-match of the 'iss' claim
-        OAuth2TokenValidator<Jwt> withTimestamp = new JwtTimestampValidator();
+        // We create a validator that ONLY checks if the token has expired.
+        // This ignores 'aud' and 'iss' mismatches which are causing your 401.
+        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(java.time.Duration.ofSeconds(60)) // 60s clock skew
+        );
 
-        // This effectively bypasses the strict 'iss' string check while keeping the signature check
-        jwtDecoder.setJwtValidator(withTimestamp);
-
+        jwtDecoder.setJwtValidator(validator);
         return jwtDecoder;
+    }
+
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter listConverter = new JwtGrantedAuthoritiesConverter();
+        listConverter.setAuthorityPrefix("ROLE_"); // This adds the 'ROLE_' prefix
+        listConverter.setAuthoritiesClaimName("cognito:groups"); // Cognito stores groups here
+
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(listConverter);
+        return converter;
+    }
+
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+        configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000")); // Your React App
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

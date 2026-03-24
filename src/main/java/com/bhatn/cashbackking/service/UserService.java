@@ -1,39 +1,54 @@
 package com.bhatn.cashbackking.service;
 
 import com.bhatn.cashbackking.entity.User;
+import com.bhatn.cashbackking.entity.UserWallet;
 import com.bhatn.cashbackking.repository.UserRepository;
+import com.bhatn.cashbackking.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepo;
+    private final WalletRepository walletRepo; // Added this
 
     @Transactional
     public User syncUser(Jwt jwt) {
         String sub = jwt.getClaimAsString("sub");
         String email = jwt.getClaimAsString("email");
         String name = jwt.getClaimAsString("name");
+        // Safety check for the 'null name' error we saw earlier
+        if (name == null) name = email.split("@")[0];
 
+        String finalName = name;
         return userRepo.findById(sub)
                 .map(existingUser -> {
-                    // Update existing user if info changed in Cognito
                     existingUser.setEmail(email);
-                    existingUser.setName(name);
+                    existingUser.setName(finalName);
                     return userRepo.save(existingUser);
                 })
                 .orElseGet(() -> {
-                    // Create new user record if it's their first time
+                    // 1. Create User
                     User newUser = User.builder()
                             .cognitoId(sub)
                             .email(email)
-                            .name(name)
+                            .name(finalName)
                             .build();
-                    return userRepo.save(newUser);
+                    User savedUser = userRepo.saveAndFlush(newUser);
+
+                    // 2. Create Wallet (This prevents the FK error)
+                    UserWallet wallet = UserWallet.builder()
+                            .userId(sub)
+                            .currentBalance(BigDecimal.ZERO)
+                            .build();
+                    walletRepo.save(wallet);
+
+                    return savedUser;
                 });
     }
 }

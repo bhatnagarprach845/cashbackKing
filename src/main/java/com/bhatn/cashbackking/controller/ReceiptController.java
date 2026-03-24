@@ -83,6 +83,7 @@ public class ReceiptController {
     /**
      * 2. Local Upload (Development/Web App)
      */
+    @Transactional
     @PostMapping("/upload-local")
     public ResponseEntity<Map<String, Object>> uploadLocal(
             @RequestParam("file") MultipartFile file,
@@ -110,6 +111,7 @@ public class ReceiptController {
                     item.setDescription(dto.getDescription());
                     item.setQuantity(dto.getQuantity());
                     item.setTotalPrice(dto.getPrice()); // Assuming DTO price is the total for that line
+                    item.setUnitPrice(dto.getUnitPrice());
                     item.setReceipt(receipt); // CRITICAL for the foreign key link
                     return item;
                 }).collect(Collectors.toList());
@@ -121,7 +123,7 @@ public class ReceiptController {
             receiptProcessor.processCashback(receipt);
 
             return ResponseEntity.ok(Map.of(
-                    "status", "SUCCESS",
+                    "status", receipt.getStatus(),
                     "merchant", result.getMerchantName(),
                     "extractedTotal", result.getTotalAmount()
             ));

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ public class Receipt {
     // Add this field to fix the error
     private String merchantZipCode;
     private BigDecimal totalAmount;
-    private LocalDateTime purchaseDate;
+    private LocalDate purchaseDate;
     private String s3Key;
 
     // The missing piece: Tracks the lifecycle of the receipt

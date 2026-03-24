@@ -8,7 +8,10 @@ import software.amazon.awssdk.services.textract.TextractClient;
 import software.amazon.awssdk.services.textract.model.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +31,12 @@ public class BillAnalyzer {
     }
 
     private ExtractionResult mapResponse(AnalyzeExpenseResponse response) {
+        DateTimeFormatter flexibleFormatter = new DateTimeFormatterBuilder()
+                .appendPattern("[MM/dd/yyyy]") // Try 4-digit year first
+                .appendPattern("[MM/dd/yy]")   // Then try 2-digit year
+                .appendPattern("[yyyy-MM-dd]") // Standard ISO
+                .toFormatter();
+
         if (response.expenseDocuments().isEmpty()) {
             return ExtractionResult.builder().totalAmount(BigDecimal.ZERO).lineItems(new ArrayList<>()).build();
         }
@@ -48,7 +57,7 @@ public class BillAnalyzer {
         return ExtractionResult.builder()
                 .merchantName(merchant != null ? merchant : "UNKNOWN")
                 .totalAmount(parseAmount(totalStr))
-                .purchaseDate(parseDate(dateStr))
+                .purchaseDate(LocalDate.parse(dateStr, flexibleFormatter))
                 .lineItems(items)
                 .build();
     }
@@ -60,11 +69,13 @@ public class BillAnalyzer {
         String description = getField(fields, "ITEM");
         String priceStr = getField(fields, "PRICE");
         String qtyStr = getField(fields, "QUANTITY");
+        String unitPriceStr = getField(fields, "UNIT_PRICE");
 
         return ExtractionResult.LineItemDTO.builder()
                 .description(description != null ? description : "Unknown Item")
                 .price(parseAmount(priceStr))
                 .quantity(parseQuantity(qtyStr))
+                .unitPrice(parseAmount(unitPriceStr))
                 .build();
     }
 

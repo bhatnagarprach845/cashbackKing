@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +29,23 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     boolean existsByMerchantNameAndTotalAmountAndPurchaseDate(
             String merchantName,
             BigDecimal totalAmount,
-            LocalDateTime purchaseDate
+            LocalDate purchaseDate
+    );
+
+    @Query("SELECT COUNT(r) > 0 FROM Receipt r JOIN r.items i " +
+            "WHERE r.id <> :currentId " + // <--- ADD THIS LINE
+            "AND r.merchantName = :merchantName " +
+            "AND r.totalAmount = :totalAmount " +
+            "AND r.purchaseDate = :purchaseDate " +
+            "AND i.description = :description " +
+            "AND i.unitPrice = :unitPrice")
+    boolean existsByDeepCheck(
+            @Param("currentId") Long currentId,
+            @Param("merchantName") String merchantName,
+            @Param("totalAmount") BigDecimal totalAmount,
+            @Param("purchaseDate") LocalDate purchaseDate,
+            @Param("description") String description,
+            @Param("unitPrice") BigDecimal unitPrice
     );
 
     boolean existsByMerchantNameAndTotalAmount(
@@ -39,7 +56,7 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     boolean existsByMerchantNameAndTotalAmountAndPurchaseDateNot(
             String merchantName,
             BigDecimal totalAmount,
-            LocalDateTime purchaseDate
+            LocalDate purchaseDate
     );
 
     // 3. Analytics: Find the most popular merchants for cashback
