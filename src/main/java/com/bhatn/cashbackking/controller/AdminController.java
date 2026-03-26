@@ -21,6 +21,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
 public class AdminController {
 
     private final WalletRepository walletRepository;
