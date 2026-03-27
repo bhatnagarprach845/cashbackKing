@@ -14,20 +14,21 @@ import java.io.OutputStream;
 
 public class StreamLambdaHandler implements RequestStreamHandler {
 
-    private static SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
+        private static final SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
 
-    static {
-        try {
-            // Change 'getAwsProxyHandler' to 'getHttpApiV2ProxyHandler'
-            handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(CashbackKingApplication.class);
-        } catch (ContainerInitializationException e) {
-            throw new RuntimeException("Could not initialize Spring Boot application", e);
+        static {
+            try {
+                // This is the most reliable way to get a pre-configured v2 handler
+                handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(CashbackKingApplication.class);
+            } catch (ContainerInitializationException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Could not initialize Spring Boot application", e);
+            }
+        }
+
+        @Override
+        public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context)
+                throws IOException {
+            handler.proxyStream(inputStream, outputStream, context);
         }
     }
-
-    @Override
-    public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context)
-            throws IOException {
-        handler.proxyStream(inputStream, outputStream, context);
-    }
-}
