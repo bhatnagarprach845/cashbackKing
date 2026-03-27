@@ -14,16 +14,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 public class StreamLambdaHandler implements RequestStreamHandler {
+    // Change the types to <HttpApiV2ProxyRequest, AwsProxyResponse>
     private static SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
 
     static {
         try {
-            // Use the Builder to specify HttpApiV2 (Function URL) support
-            handler = new SpringBootProxyHandlerBuilder<HttpApiV2ProxyRequest>()
-                    .defaultProxy()
-                    .asyncInit() // Keeps that 15s timeout away
-                    .springBootApplication(CashbackKingApplication.class)
-                    .buildAndInitialize();
+            // This is the critical change: use the V2 handler method
+            handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(CashbackKingApplication.class);
         } catch (ContainerInitializationException e) {
             e.printStackTrace();
             throw new RuntimeException("Could not initialize Spring Boot application", e);
