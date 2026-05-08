@@ -63,9 +63,14 @@ public class SecurityConfig {
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-        configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000","https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")); // Your React App
+        //configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000","https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")); // Your React App
+        // Use allowedOriginPatterns to handle Amplify's dynamic preview URLs more robustly
+        configuration.setAllowedOriginPatterns(java.util.List.of(
+                "http://localhost:3000",
+                "https://*.amplifyapp.com"
+        ));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
         configuration.setAllowCredentials(true);
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

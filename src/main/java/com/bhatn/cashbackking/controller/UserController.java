@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
+//@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
 public class UserController {
 
     private final UserService userService;

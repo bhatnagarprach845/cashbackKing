@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/receipts")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
+//@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
 public class ReceiptController {
 
     private final ReceiptProcessor receiptProcessor;
