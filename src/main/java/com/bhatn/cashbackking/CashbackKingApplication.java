@@ -24,7 +24,7 @@ public class CashbackKingApplication {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000", "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
+                        .allowedOriginPatterns("http://localhost:3000", "https://*.amplifyapp.com")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
