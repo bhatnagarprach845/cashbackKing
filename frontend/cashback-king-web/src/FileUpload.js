@@ -29,7 +29,10 @@ const FileUpload = (props) => {
        try {
             const session = await fetchAuthSession();
            const token = session.tokens?.idToken?.toString();
-           const response = await axios.post("http://localhost:8080/api/v1/receipts/upload-local", formData, {
+
+             // 2. Use the environment variable instead of localhost
+           const apiUrl = process.env.REACT_APP_API_URL;
+           const response = await axios.post(`${apiUrl}/api/v1/receipts/upload-local`, formData, {
                headers: {
                                'Authorization': `Bearer ${token}`,
                                'Content-Type': 'multipart/form-data'
