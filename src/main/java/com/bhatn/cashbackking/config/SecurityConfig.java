@@ -19,8 +19,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Disabled for APIs using JWT
                 .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         // ADD THIS LINE: Explicitly allow the browser's handshake
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
