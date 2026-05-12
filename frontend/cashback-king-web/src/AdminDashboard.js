@@ -24,7 +24,7 @@ const AdminDashboard = () => {
 
 const getAuthHeader = async () => {
         const session = await fetchAuthSession();
-        const token = session.tokens?.idToken?.toString();
+        const token = session.tokens?.accessToken?.toString();
         return { Authorization: `Bearer ${token}` };
     };
 
@@ -143,7 +143,7 @@ const getAuthHeader = async () => {
     const handleDownload = async (endpoint, fileName) => {
         try {
             const session = await fetchAuthSession();
-            const token = session.tokens?.idToken?.toString();
+            const token = session.tokens?.accessToken?.toString();
 
             const response = await axios.get(`${BASE_URL}${endpoint}`, {
                 headers: { Authorization: `Bearer ${token}` },

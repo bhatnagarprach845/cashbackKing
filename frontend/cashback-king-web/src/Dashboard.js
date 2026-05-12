@@ -18,7 +18,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
     const fetchStatus = async () => {
         try {
             const session = await fetchAuthSession();
-            const token = session.tokens?.idToken?.toString();
+            const token = session.tokens?.accessToken?.toString();
             if (!token) return;
 
             const res = await axios.get(`${BASE_URL}/receipts/payout-status`, {
@@ -56,7 +56,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
     const handleProfileSubmit = async () => {
         try {
             const session = await fetchAuthSession();
-            const token = session.tokens?.idToken?.toString();
+            const token = session.tokens?.accessToken?.toString();
             await axios.post(`${BASE_URL}/users/sync-profile`, profileForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -79,7 +79,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         setIsRedeeming(true);
         try {
             const session = await fetchAuthSession();
-            const token = session.tokens?.idToken?.toString();
+            const token = session.tokens?.accessToken?.toString();
             const res = await axios.post(`${BASE_URL}/receipts/redeem`,
                 { amount: amountToSend },
                 { headers: { Authorization: `Bearer ${token}` } }
