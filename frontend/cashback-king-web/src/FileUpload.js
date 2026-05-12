@@ -32,7 +32,7 @@ const FileUpload = (props) => {
 
              // 2. Use the environment variable instead of localhost
            const apiUrl = process.env.REACT_APP_API_URL;
-           const response = await axios.post(`${apiUrl}/api/v1/receipts/upload-local`, formData, {
+           const response = await axios.post(`${apiUrl}/api/v1/receipts/upload`, formData, {
                headers: {
                                'Authorization': `Bearer ${token}`,
                                'Content-Type': 'multipart/form-data'
