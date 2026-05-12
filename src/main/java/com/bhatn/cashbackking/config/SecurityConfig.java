@@ -22,6 +22,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Disabled for APIs using JWT
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
+                        // ADD THIS LINE: Explicitly allow the browser's handshake
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")// Secure Admin paths
                         .anyRequest().authenticated()
                 )
@@ -70,7 +72,9 @@ public class SecurityConfig {
                 "https://*.amplifyapp.com"
         ));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
+        //configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
+        configuration.setAllowedHeaders(java.util.List.of("*"));
+        configuration.setExposedHeaders(java.util.List.of("Authorization"));
         configuration.setAllowCredentials(true);
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
