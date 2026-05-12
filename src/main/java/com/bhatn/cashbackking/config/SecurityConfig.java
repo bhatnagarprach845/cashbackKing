@@ -24,17 +24,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
-                // 1. MUST BE AT THE TOP: Explicitly link your source
+                // 1. Force CORS to be evaluated first using the configuration source below
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
 
                 .authorizeHttpRequests(auth -> auth
-                        // 2. Permit the preflight globally
+                        // 2. This MUST stay at the top
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
+                // 3. Configure the resource server
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 );
