@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 import java.util.*;
 
 @Slf4j
-@CrossOrigin(origins = "http://localhost:3000")
+//@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/api/v1/bills")
 public class BillController_del {
