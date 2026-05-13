@@ -45,8 +45,8 @@ const getAuthHeader = async () => {
         try {
             const headers = await getAuthHeader(); // Get fresh token
             const [walletRes, payoutRes] = await Promise.all([
-                axios.get(`${BASE_URL}/admin/wallets`, { headers }),
-                axios.get(`${BASE_URL}/admin/payouts`, { headers })
+                axios.get(`${BASE_URL}/wallets`, { headers }),
+                axios.get(`${BASE_URL}/payouts`, { headers })
             ]);
             setWallets(walletRes.data);
             setPayouts(payoutRes.data);

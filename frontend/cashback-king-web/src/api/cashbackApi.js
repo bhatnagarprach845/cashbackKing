@@ -2,7 +2,7 @@ const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 export const syncUserWithBackend = async (idToken) => {
     try {
-        const response = await fetch(`${BASE_URL}/users/sync`, {
+        const response = await fetch(`${BASE_URL}/api/v1/users/sync`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${idToken}`,
