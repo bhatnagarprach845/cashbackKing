@@ -24,7 +24,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                         return;
                     }
 
-            const res = await axios.get(`${BASE_URL}/receipts/payout-status`, {
+            const res = await axios.get(`${BASE_URL}/payout-status`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setData(res.data);
@@ -60,7 +60,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            await axios.post(`${BASE_URL}/users/sync`, profileForm, {
+            await axios.post(`${BASE_URL}/users/syncProfile`, profileForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setShowProfileModal(false);
