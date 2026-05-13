@@ -57,7 +57,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.accessToken?.toString();
-            await axios.post(`${BASE_URL}/users/sync-profile`, profileForm, {
+            await axios.post(`${BASE_URL}/users/sync`, profileForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setShowProfileModal(false);
