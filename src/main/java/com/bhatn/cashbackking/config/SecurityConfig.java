@@ -1,5 +1,7 @@
 package com.bhatn.cashbackking.config;
 
+import jakarta.servlet.http.HttpServletResponse;
+import org.hibernate.engine.spi.EntityEntry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -90,6 +92,7 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "https://*.amplifyapp.com"
         ));
+
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         //configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
         configuration.setAllowedHeaders(java.util.List.of("*"));
