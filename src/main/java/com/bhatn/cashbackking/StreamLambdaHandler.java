@@ -27,20 +27,27 @@ public class StreamLambdaHandler implements RequestStreamHandler {
     }
 
     @Override
-    public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context)
-            throws IOException {
-        // Inside handleRequest method
+    public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context) throws IOException {
         byte[] inputBytes = inputStream.readAllBytes();
         String inputString = new String(inputBytes);
 
-        if (inputString.contains("\"method\":\"OPTIONS\"") || inputString.contains("\"httpMethod\":\"OPTIONS\"")) {
-            String response = "{\"statusCode\":200,\"headers\":{"
-                    + "\"Access-Control-Allow-Origin\":\"*\", "
-                    + "\"Access-Control-Allow-Methods\":\"GET,POST,PUT,DELETE,OPTIONS\","
-                    + "\"Access-Control-Allow-Headers\":\"*\"}}";
+        // 1. Manually catch the OPTIONS preflight
+        if (inputString.contains("\"httpMethod\":\"OPTIONS\"") || inputString.contains("\"method\":\"OPTIONS\"")) {
+            String response = "{"
+                    + "\"statusCode\": 200,"
+                    + "\"headers\": {"
+                    + "  \"Access-Control-Allow-Origin\": \"https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com\","
+                    + "  \"Access-Control-Allow-Methods\": \"GET, POST, PUT, DELETE, OPTIONS\","
+                    + "  \"Access-Control-Allow-Headers\": \"*\","
+                    + "  \"Access-Control-Allow-Credentials\": \"true\""
+                    + "},"
+                    + "\"body\": \"\""
+                    + "}";
             outputStream.write(response.getBytes());
-            return;
+            return; // STOP HERE! Do not let it hit Spring Security.
         }
+
+        // 2. If it's a real request (GET/POST), pass it to Spring Boot
         handler.proxyStream(new ByteArrayInputStream(inputBytes), outputStream, context);
     }
 }
