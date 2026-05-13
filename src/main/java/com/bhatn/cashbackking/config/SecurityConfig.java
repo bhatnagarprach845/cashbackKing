@@ -37,20 +37,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. POSITION ZERO: Add the filter manually at the absolute start
+                // This puts your CORS logic at the very front door
                 .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
-
                 .csrf(csrf -> csrf.disable())
-
                 .authorizeHttpRequests(auth -> auth
-                        // 2. This is now your backup, but keep it for safety
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                );
+                .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
 
         return http.build();
     }
