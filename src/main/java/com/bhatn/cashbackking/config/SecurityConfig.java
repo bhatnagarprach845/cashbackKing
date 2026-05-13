@@ -37,8 +37,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // This puts your CORS logic at the very front door
-                .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
+                // This MUST be the very first line in the filterChain
+                .addFilterBefore(new org.springframework.web.filter.CorsFilter(corsConfigurationSource()),
+                        org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
