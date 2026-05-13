@@ -1,12 +1,12 @@
 package com.bhatn.cashbackking.config;
 
-import jakarta.servlet.http.HttpServletResponse;
-import org.hibernate.engine.spi.EntityEntry;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.*;
@@ -41,11 +41,13 @@ public class SecurityConfig {
         http
                 // 1. Use the existing Bean, not 'new CorsFilter'
                 .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         // 3. SECURE THE ADMIN PATH EXPLICITLY
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // 4. Permit the sync and payout status for all logged-in users
+                        .requestMatchers("/api/v1/users/sync", "/api/v1/payout-status").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
