@@ -29,35 +29,18 @@ public class StreamLambdaHandler implements RequestStreamHandler {
     @Override
     public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context)
             throws IOException {
-        // 1. Read the input stream into a string to check for OPTIONS
-        // (This is a bit more manual but guarantees no method signature errors)
-        try {
-            byte[] inputBytes = inputStream.readAllBytes();
-            String inputString = new String(inputBytes);
+        // Inside handleRequest method
+        byte[] inputBytes = inputStream.readAllBytes();
+        String inputString = new String(inputBytes);
 
-            if (inputString.contains("\"httpMethod\":\"OPTIONS\"") || inputString.contains("\"method\":\"OPTIONS\"")) {
-                // Manually write the 200 OK response with CORS headers
-                String corsResponse = "{"
-                        + "\"statusCode\": 200,"
-                        + "\"headers\": {"
-                        + "  \"Access-Control-Allow-Origin\": \"https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com\","
-                        + "  \"Access-Control-Allow-Methods\": \"GET, POST, PUT, DELETE, OPTIONS\","
-                        + "  \"Access-Control-Allow-Headers\": \"*\","
-                        + "  \"Access-Control-Allow-Credentials\": \"true\""
-                        + "},"
-                        + "\"body\": \"\""
-                        + "}";
-                outputStream.write(corsResponse.getBytes());
-                return; // Stop here!
-            }
-
-            // 2. If not OPTIONS, pass the original bytes to the handler
-            ByteArrayInputStream bais = new ByteArrayInputStream(inputBytes);
-            handler.proxyStream(bais, outputStream, context);
-
-        } catch (Exception e) {
-            // Fallback to standard handling if the manual check fails
-            handler.proxyStream(inputStream, outputStream, context);
+        if (inputString.contains("\"method\":\"OPTIONS\"") || inputString.contains("\"httpMethod\":\"OPTIONS\"")) {
+            String response = "{\"statusCode\":200,\"headers\":{"
+                    + "\"Access-Control-Allow-Origin\":\"*\", "
+                    + "\"Access-Control-Allow-Methods\":\"GET,POST,PUT,DELETE,OPTIONS\","
+                    + "\"Access-Control-Allow-Headers\":\"*\"}}";
+            outputStream.write(response.getBytes());
+            return;
         }
+        handler.proxyStream(new ByteArrayInputStream(inputBytes), outputStream, context);
     }
 }

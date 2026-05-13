@@ -46,9 +46,9 @@ public class SecurityConfig {
                 // We don't need .cors() here anymore because the Bean above handles it earlier
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        /*.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/receipts/**", "/api/v1/users/**").authenticated()
-                        .requestMatchers("/api/v1/receipts/").authenticated()
+                        .requestMatchers("/api/v1/receipts/").authenticated()*/
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
