@@ -11,6 +11,8 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 @Configuration
@@ -19,14 +21,24 @@ public class SecurityConfig {
 
     @Bean
     public CorsFilter corsFilter() {
-        return new CorsFilter(corsConfigurationSource());
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOriginPatterns(java.util.List.of(
+                "http://localhost:3000",
+                "https://*.amplifyapp.com"
+        ));
+        config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(java.util.List.of("*"));
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
     }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // 1. POSITION ZERO: Add the filter manually at the absolute start
-                .addFilterBefore(new org.springframework.web.filter.CorsFilter(corsConfigurationSource()),
-                        org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
+                .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
 
                 .csrf(csrf -> csrf.disable())
 
