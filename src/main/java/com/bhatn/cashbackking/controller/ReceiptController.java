@@ -85,7 +85,7 @@ public class ReceiptController {
      * 2. Local Upload (Development/Web App)
      */
     @Transactional
-    @PostMapping("/upload-local")
+    @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadLocal(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal Jwt jwt) {
