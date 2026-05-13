@@ -31,7 +31,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/receipts")
+//@RequestMapping("/api/v1/receipts")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @Slf4j
 //@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
@@ -133,7 +134,7 @@ public class ReceiptController {
         }
     }
 
-    @PostMapping("/sync")
+    @PostMapping("/users/sync")
     public ResponseEntity<User> syncProfile(
             @RequestBody Map<String, String> profileData,
             @AuthenticationPrincipal Jwt jwt) {

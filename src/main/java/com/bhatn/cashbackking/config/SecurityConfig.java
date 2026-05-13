@@ -39,12 +39,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // This MUST be the very first line in the filterChain
-                .addFilterBefore(new org.springframework.web.filter.CorsFilter(corsConfigurationSource()),
-                        org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
+                // 1. Use the existing Bean, not 'new CorsFilter'
+                .addFilterBefore(corsFilter(), org.springframework.security.web.access.channel.ChannelProcessingFilter.class)
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        // 3. SECURE THE ADMIN PATH EXPLICITLY
+                        .requestMatchers("/api/v1/admin/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
@@ -52,11 +53,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring()
-                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**");
-    }
     @Bean
     public JwtDecoder jwtDecoder() {
         String jwkSetUri = "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_OfWs7erUH/.well-known/jwks.json";
