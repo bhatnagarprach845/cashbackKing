@@ -38,7 +38,7 @@ function App() {
         try {
           // Get the JWT Token from the current session
           const session = await fetchAuthSession();
-          const token = session.tokens.idToken.toString();
+          const token = session.tokens.accessToken.toString();
 
           // Call your Spring Boot backend
           await syncUserWithBackend(token);
