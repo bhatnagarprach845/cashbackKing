@@ -37,7 +37,9 @@ public class SecurityConfig {
                        .requestMatchers("/api/v1/receipts/").authenticated()*/
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                );
 
         return http.build();
     }
@@ -67,7 +69,7 @@ public class SecurityConfig {
         return converter;
     }
 
-    @Bean
+ /*   @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
         //configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000","https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")); // Your React App
@@ -85,5 +87,5 @@ public class SecurityConfig {
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
+    }*/
 }
