@@ -28,7 +28,7 @@ public class StreamLambdaHandler implements RequestStreamHandler {
 
     @Override
     public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context) throws IOException {
-        byte[] inputBytes = inputStream.readAllBytes();
+      /*  byte[] inputBytes = inputStream.readAllBytes();
         String inputString = new String(inputBytes);
 
         // 1. Manually catch the OPTIONS preflight
@@ -48,6 +48,7 @@ public class StreamLambdaHandler implements RequestStreamHandler {
         }
 
         // 2. If it's a real request (GET/POST), pass it to Spring Boot
-        handler.proxyStream(new ByteArrayInputStream(inputBytes), outputStream, context);
+        handler.proxyStream(new ByteArrayInputStream(inputBytes), outputStream, context);*/
+        handler.proxyStream(inputStream, outputStream, context);
     }
 }
