@@ -11,7 +11,9 @@ export const syncUserWithBackend = async (idToken) => {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to sync user');
+             // Attempt to get error details from the server response body
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`Sync failed (${response.status}): ${errorData.message || 'Unknown error'}`);
         }
 
         return await response.json();
