@@ -34,9 +34,8 @@ const Dashboard = ({ refreshTrigger, username }) => {
                 setShowProfileModal(true);
             }
         } catch (err) {
-         // Attempt to get error details from the server response body
-            const errorData = await res.json().catch(() => ({}));
-            throw new Error(`Sync failed (${res.status}): ${errorData.message || 'Unknown error'}`);
+
+
             console.error("Error fetching status", err);
         }
     };
