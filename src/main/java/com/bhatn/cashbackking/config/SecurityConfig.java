@@ -27,14 +27,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                // 1. Disable Spring's internal CORS processing
+                // (This allows the request to pass through since AWS already checked the Origin)
+                .cors(AbstractHttpConfigurer::disable)
                 .csrf(csrf -> csrf.disable())
-                // We don't need .cors() here anymore because the Bean above handles it earlier
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/users/**", "/api/v1/payout-status", "/api/v1/receipts/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        /*.requestMatchers("/api/v1/receipts/**", "/api/v1/users/**").authenticated()
-                       .requestMatchers("/api/v1/receipts/").authenticated()*/
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth
