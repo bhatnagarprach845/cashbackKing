@@ -134,7 +134,7 @@ public class ReceiptController {
         }
     }
 
-    @PostMapping("/users/syncProfile")
+    @PostMapping("/syncProfile")
     public ResponseEntity<User> syncProfile(
             @RequestBody Map<String, String> profileData,
             @AuthenticationPrincipal Jwt jwt) {
