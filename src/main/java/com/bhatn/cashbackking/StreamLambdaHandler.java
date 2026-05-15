@@ -1,7 +1,7 @@
 package com.bhatn.cashbackking;
 
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
-import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
+import com.amazonaws.serverless.proxy.model.HttpApiV2ProxyRequest; // ← V2
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
 import com.amazonaws.serverless.proxy.spring.SpringBootLambdaContainerHandler;
 import com.amazonaws.services.lambda.runtime.Context;
@@ -13,12 +13,11 @@ import java.io.OutputStream;
 
 public class StreamLambdaHandler implements RequestStreamHandler {
 
-    // ✅ AwsProxyRequest handles both Lambda Function URLs and API Gateway v1
-    private static SpringBootLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
+    private static SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
 
     static {
         try {
-            handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(CashbackKingApplication.class);
+            handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(CashbackKingApplication.class);
         } catch (ContainerInitializationException e) {
             throw new RuntimeException("Could not initialize Spring framework", e);
         }
