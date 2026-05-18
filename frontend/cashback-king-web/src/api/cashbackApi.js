@@ -21,7 +21,7 @@ const getAuthHeader = async () => {
 export const syncUserWithBackend = async () => {  // No longer needs token param
     try {
         const headers = await getAuthHeader();
-        const response = await fetch(`${BASE_URL}/api/v1/users/sync`, {
+        const response = await fetch(`${BASE_URL}/users/sync`, {
             method: 'POST',
             headers
         });
