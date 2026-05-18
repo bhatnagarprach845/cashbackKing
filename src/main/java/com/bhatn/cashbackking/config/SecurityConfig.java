@@ -24,8 +24,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
+                // 1. CRITICAL: Turn off Spring's internal CORS validation
+                .cors(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/users/**", "/api/v1/payout-status", "/api/v1/receipts/**").authenticated()
@@ -34,21 +35,6 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                        // ✅ This ensures CORS headers are added even on 401/403 responses
-                        .authenticationEntryPoint((request, response, ex) -> {
-                            response.setHeader("Access-Control-Allow-Origin", request.getHeader("Origin"));
-                            response.setHeader("Access-Control-Allow-Credentials", "true");
-                            response.setStatus(401);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"" + ex.getMessage() + "\"}");
-                        })
-                        .accessDeniedHandler((request, response, ex) -> {
-                            response.setHeader("Access-Control-Allow-Origin", request.getHeader("Origin"));
-                            response.setHeader("Access-Control-Allow-Credentials", "true");
-                            response.setStatus(403);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"" + ex.getMessage() + "\"}");
-                        })
                 );
 
         return http.build();
