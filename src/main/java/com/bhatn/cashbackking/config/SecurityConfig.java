@@ -24,8 +24,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. CRITICAL: Turn off Spring's internal CORS validation
-                .cors(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.disable()) // <-- CRITICAL: Tells Spring to stop checking Origins
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
