@@ -1,7 +1,7 @@
 package com.bhatn.cashbackking;
 
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
-import com.amazonaws.serverless.proxy.model.AwsProxyRequest;  // ← Change to V1 Request
+import com.amazonaws.serverless.proxy.model.HttpApiV2ProxyRequest; // Modern V2 Request format
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
 import com.amazonaws.serverless.proxy.spring.SpringBootLambdaContainerHandler;
 import com.amazonaws.services.lambda.runtime.Context;
@@ -13,13 +13,13 @@ import java.io.OutputStream;
 
 public class StreamLambdaHandler implements RequestStreamHandler {
 
-    // 1. Switch generic type back to AwsProxyRequest
-    private static SpringBootLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
+    // 1. Correct generic type to use the V2 request model
+    private static final SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
 
     static {
         try {
-            // 2. Use getAwsProxyHandler to natively read the BUFFERED (v1.0) httpMethod payload
-            handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(CashbackKingApplication.class);
+            // 2. Instantiate the V2-specific handler matching the modern API/Function URL structure
+            handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(CashbackKingApplication.class);
         } catch (ContainerInitializationException e) {
             throw new RuntimeException("Could not initialize Spring framework", e);
         }
