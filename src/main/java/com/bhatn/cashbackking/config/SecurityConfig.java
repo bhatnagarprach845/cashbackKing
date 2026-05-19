@@ -27,6 +27,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.disable()) // <-- CRITICAL: Tells Spring to stop checking Origins
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/debug/**").permitAll() // ← add this
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/users/**", "/api/v1/payout-status", "/api/v1/receipts/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
