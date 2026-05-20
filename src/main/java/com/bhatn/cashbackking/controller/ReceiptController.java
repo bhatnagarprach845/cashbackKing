@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/receipts")
 @Slf4j
 public class ReceiptController {
 
