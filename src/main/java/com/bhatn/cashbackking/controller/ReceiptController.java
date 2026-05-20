@@ -11,9 +11,7 @@ import com.bhatn.cashbackking.service.ReceiptProcessor;
 import com.bhatn.cashbackking.service.UserService;
 import com.bhatn.cashbackking.service.WalletService;
 import com.bhatn.cashbackking.service.ocr.BillAnalyzer;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,34 +22,47 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-//@RequestMapping("/api/v1/receipts")
 @RequestMapping("/api/v1")
-@RequiredArgsConstructor
 @Slf4j
-//@CrossOrigin(origins = "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com")
 public class ReceiptController {
 
     private final ReceiptProcessor receiptProcessor;
     private final ReceiptRepository receiptRepository;
-    private final WalletRepository walletRepository; // Added for Payout Status
-    private final UserRepository userRepository; // Added for Payout Status
-
+    private final WalletRepository walletRepository;
+    private final UserRepository userRepository;
     private final CashbackTransactionRepository transactionRepository;
     private final BillAnalyzer billAnalyzer;
     private final UserService userService;
+    private final WalletService walletService;
+    private final String bucketName;
 
-    @Autowired
-    private WalletService walletService; // Inject your new service
-
-    @Value("${aws.s3.bucket}") // Injected from application.properties
-    private String bucketName;
+    // A single, explicit constructor handles both beans and value injections flawlessly
+    public ReceiptController(
+            ReceiptProcessor receiptProcessor,
+            ReceiptRepository receiptRepository,
+            WalletRepository walletRepository,
+            UserRepository userRepository,
+            CashbackTransactionRepository transactionRepository,
+            BillAnalyzer billAnalyzer,
+            UserService userService,
+            WalletService walletService,
+            @Value("${aws.s3.bucket}") String bucketName) {
+        this.receiptProcessor = receiptProcessor;
+        this.receiptRepository = receiptRepository;
+        this.walletRepository = walletRepository;
+        this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
+        this.billAnalyzer = billAnalyzer;
+        this.userService = userService;
+        this.walletService = walletService;
+        this.bucketName = bucketName;
+    }
 
     /**
      * 1. S3 Processing (Production/Android App)
@@ -72,7 +83,6 @@ public class ReceiptController {
         receipt.setStatus(ReceiptStatus.PROCESSING);
         receipt = receiptRepository.save(receipt);
 
-        // Async processing handles the long-running OCR task
         receiptProcessor.processCashbackAsync(receipt.getId(), bucketName, s3Key);
 
         return ResponseEntity.ok(Map.of(
@@ -91,7 +101,6 @@ public class ReceiptController {
             @AuthenticationPrincipal Jwt jwt) {
 
         String userId = jwt.getClaimAsString("sub");
-
         log.info("User {} is uploading a receipt", userId);
 
         try {
@@ -105,15 +114,14 @@ public class ReceiptController {
             receipt.setStatus(ReceiptStatus.UPLOADED);
             receipt.setS3Key("local/" + UUID.randomUUID());
 
-            // MAP DTO to ENTITY
             if (result.getLineItems() != null) {
                 List<ReceiptItem> entityItems = result.getLineItems().stream().map(dto -> {
                     ReceiptItem item = new ReceiptItem();
                     item.setDescription(dto.getDescription());
                     item.setQuantity(dto.getQuantity());
-                    item.setTotalPrice(dto.getPrice()); // Assuming DTO price is the total for that line
+                    item.setTotalPrice(dto.getPrice());
                     item.setUnitPrice(dto.getUnitPrice());
-                    item.setReceipt(receipt); // CRITICAL for the foreign key link
+                    item.setReceipt(receipt);
                     return item;
                 }).collect(Collectors.toList());
 
@@ -133,9 +141,10 @@ public class ReceiptController {
             return ResponseEntity.internalServerError().body(Map.of("error", "OCR extraction failed"));
         }
     }
-    @GetMapping("/api/v1/version")
+
+    @GetMapping("/version") // Cleaned up path context redundancy
     public String version() {
-        return "v2-cors-filter-deployed"; // Change this string each deploy
+        return "v2-bean-injection-fixed";
     }
 
     @PostMapping("/syncProfile")
@@ -146,11 +155,9 @@ public class ReceiptController {
         String cognitoId = jwt.getClaimAsString("sub");
         String email = jwt.getClaimAsString("email");
 
-        // Find existing user or create a new one
         User user = userRepository.findById(cognitoId)
                 .orElse(User.builder().cognitoId(cognitoId).build());
 
-        // Update fields from the request
         user.setEmail(email);
         user.setName(profileData.get("name"));
         user.setUpiId(profileData.get("upiId"));
@@ -159,30 +166,23 @@ public class ReceiptController {
     }
 
     /**
-     * 3. Payout Status (Integrated from BillController)
-     * Fetches current balance and ₹30 threshold progress.
-     */
-    /**
-     * PAYOUT STATUS (Real-time Dashboard Data)
+     * 3. Payout Status (Real-time Dashboard Data)
      */
     @GetMapping("/payout-status")
-    public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt, String userIdForUser) {
+    public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt) {
 
         String userId = jwt.getClaimAsString("sub");
 
-        // Fallback: Sometimes Cognito puts the ID in "username" or "uid"
         if (userId == null) {
             userId = jwt.getClaimAsString("username");
         }
 
-        // 2. CRITICAL: If it's still null, we shouldn't hit the DB
         if (userId == null) {
-            log.error("JWT claims: {}", jwt.getClaims()); // This will print all claims so you can see the real key
+            log.error("JWT claims missing primary identity keys: {}", jwt.getClaims());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        // 3. Now it is safe to query the repositories
-        User user = userRepository.findById(userId).orElse(null);
 
+        User user = userRepository.findById(userId).orElse(null);
         String finalUserId = userId;
         UserWallet wallet = walletRepository.findById(userId)
                 .orElseGet(() -> UserWallet.builder()
@@ -190,7 +190,6 @@ public class ReceiptController {
                         .currentBalance(BigDecimal.ZERO)
                         .build());
 
-        // Fetching real history from DB
         List<CashbackTransaction> history = transactionRepository.findByUserIdOrderByProcessedAtDesc(userId);
 
         BigDecimal threshold = new BigDecimal("30.00");
@@ -202,14 +201,15 @@ public class ReceiptController {
                 .statusMessage(wallet.getCurrentBalance().compareTo(threshold) >= 0
                         ? "You are eligible for payout!"
                         : "₹" + needed + " more needed for payout")
-                .upiId(user != null ? user.getUpiId() : null) // THIS IS THE TRIGGER FOR THE MODAL
+                .upiId(user != null ? user.getUpiId() : null)
                 .recentTransactions(history)
                 .build();
 
         return ResponseEntity.ok(response);
     }
+
     /**
-     * REDEEM METHOD (Improved for Partial & Full Redemption)
+     * 4. Redeem Method
      */
     @Transactional
     @PostMapping("/redeem")
@@ -218,25 +218,22 @@ public class ReceiptController {
             @AuthenticationPrincipal Jwt jwt) {
 
         String userId = jwt.getClaimAsString("sub");
-        BigDecimal minThreshold = new BigDecimal("30.00"); // Define the limit
+        BigDecimal minThreshold = new BigDecimal("30.00");
 
         try {
             UserWallet wallet = walletRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-            // Determine requested amount
             BigDecimal amountToRedeem = request.get("amount") != null
                     ? new BigDecimal(request.get("amount").toString())
                     : wallet.getCurrentBalance();
 
-            // STRICT ENFORCEMENT: Check if the request is below ₹30
             if (amountToRedeem.compareTo(minThreshold) < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                         "error", "Minimum redemption amount is ₹30. Current request: ₹" + amountToRedeem
                 ));
             }
 
-            // Standard balance check
             if (wallet.getCurrentBalance().compareTo(amountToRedeem) < 0) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Insufficient balance"));
             }
