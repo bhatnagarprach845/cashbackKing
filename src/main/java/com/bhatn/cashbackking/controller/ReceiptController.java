@@ -67,7 +67,7 @@ public class ReceiptController {
     /**
      * 1. S3 Processing (Production/Android App)
      */
-    @PostMapping("/process-s3")
+    @PostMapping("/receipts/process-s3")
     public ResponseEntity<Map<String, Object>> processS3Receipt(
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -95,7 +95,7 @@ public class ReceiptController {
      * 2. Local Upload (Development/Web App)
      */
     @Transactional
-    @PostMapping("/upload")
+    @PostMapping("/receipts/upload")
     public ResponseEntity<Map<String, Object>> uploadLocal(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal Jwt jwt) {
@@ -142,7 +142,7 @@ public class ReceiptController {
         }
     }
 
-    @GetMapping("/version") // Cleaned up path context redundancy
+    @GetMapping("/receipts/version") // Cleaned up path context redundancy
     public String version() {
         return "v2-bean-injection-fixed";
     }
