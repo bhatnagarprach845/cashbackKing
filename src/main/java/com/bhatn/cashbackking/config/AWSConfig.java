@@ -11,7 +11,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 @Configuration
 public class AWSConfig {
 
-    @Value("${aws.region:us-east-1}")
+    @Value("${env.AWS_REGION:us-east-1}")
     private String awsRegion;
 
     @Bean
