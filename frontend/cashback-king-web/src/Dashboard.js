@@ -24,7 +24,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                         return;
                     }
 
-            const res = await axios.get(`${BASE_URL}/payout-status`, {
+            const res = await axios.get(`${BASE_URL}/receipts/payout-status`, {
                 headers: { 'Authorization': `Bearer ${token}`,
                          'Content-Type': 'application/json' }
             });

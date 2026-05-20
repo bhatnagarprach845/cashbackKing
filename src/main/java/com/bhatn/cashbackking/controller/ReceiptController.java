@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/receipts")
 @Slf4j
 public class ReceiptController {
 
@@ -67,7 +67,7 @@ public class ReceiptController {
     /**
      * 1. S3 Processing (Production/Android App)
      */
-    @PostMapping("/receipts/process-s3")
+    @PostMapping("/process-s3")
     public ResponseEntity<Map<String, Object>> processS3Receipt(
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -142,12 +142,12 @@ public class ReceiptController {
         }
     }
 
-    @GetMapping("/receipts/version") // Cleaned up path context redundancy
+    @GetMapping("/version") // Cleaned up path context redundancy
     public String version() {
         return "v2-bean-injection-fixed";
     }
 
-    @PostMapping("/receipts/syncProfile")
+    @PostMapping("/syncProfile")
     public ResponseEntity<User> syncProfile(
             @RequestBody Map<String, String> profileData,
             @AuthenticationPrincipal Jwt jwt) {
@@ -212,7 +212,7 @@ public class ReceiptController {
      * 4. Redeem Method
      */
     @Transactional
-    @PostMapping("/receipts/redeem")
+    @PostMapping("/redeem")
     public ResponseEntity<Map<String, String>> redeem(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal Jwt jwt) {
