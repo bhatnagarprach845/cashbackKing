@@ -88,7 +88,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            const res = await axios.post(`${BASE_URL}/api/v1/receipts/redeem`,
+            const res = await axios.post(`${BASE_URL}/receipts/redeem`,
                 { amount: amountToSend },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
