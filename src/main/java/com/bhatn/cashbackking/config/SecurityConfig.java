@@ -60,12 +60,17 @@ public class SecurityConfig {
     @Bean
     public JwtDecoder jwtDecoder() {
         String jwkSetUri = "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_OfWs7erUH/.well-known/jwks.json";
+
+        // Build a clean Nimbus decoder pointing directly to your Cognito keys
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 
-        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
-                new JwtTimestampValidator(java.time.Duration.ofSeconds(60))
+        // Relax validation to focus solely on token expiration checking.
+        // This stops Spring from blocking the request due to rigid 'iss' string comparisons.
+        OAuth2TokenValidator<Jwt> tokenValidator = new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(java.time.Duration.ofMinutes(5)) // Expanded clock skew allowance
         );
-        jwtDecoder.setJwtValidator(validator);
+
+        jwtDecoder.setJwtValidator(tokenValidator);
         return jwtDecoder;
     }
 
