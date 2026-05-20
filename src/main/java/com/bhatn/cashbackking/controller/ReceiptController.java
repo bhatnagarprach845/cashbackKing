@@ -147,7 +147,7 @@ public class ReceiptController {
         return "v2-bean-injection-fixed";
     }
 
-    @PostMapping("/syncProfile")
+    @PostMapping("/receipts/syncProfile")
     public ResponseEntity<User> syncProfile(
             @RequestBody Map<String, String> profileData,
             @AuthenticationPrincipal Jwt jwt) {

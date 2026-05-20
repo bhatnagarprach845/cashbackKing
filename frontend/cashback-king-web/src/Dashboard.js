@@ -63,7 +63,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            await axios.post(`${BASE_URL}/users/syncProfile`, profileForm, {
+            await axios.post(`${BASE_URL}/receipts/syncProfile`, profileForm, {
                 headers: { 'Authorization': `Bearer ${token}`,
                  'Content-Type': 'application/json'
                  }

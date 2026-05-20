@@ -18,7 +18,7 @@ const getAuthHeader = async () => {
     };
 };
 
-export const syncUserWithBackend = async () => {  // No longer needs token param
+export const syncUserWithBackend = async () => {  // this is for users profile
     try {
         const headers = await getAuthHeader();
         console.log ("cashback API.js -- BASE_URL :: ", BASE_URL);
