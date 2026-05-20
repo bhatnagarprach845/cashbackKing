@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/receipts")
+@RequestMapping("/api/v1")
 @Slf4j
 public class ReceiptController {
 
@@ -212,7 +212,7 @@ public class ReceiptController {
      * 4. Redeem Method
      */
     @Transactional
-    @PostMapping("/redeem")
+    @PostMapping("/receipts/redeem")
     public ResponseEntity<Map<String, String>> redeem(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal Jwt jwt) {
