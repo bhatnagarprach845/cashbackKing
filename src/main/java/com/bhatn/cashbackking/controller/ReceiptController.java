@@ -133,6 +133,10 @@ public class ReceiptController {
             return ResponseEntity.internalServerError().body(Map.of("error", "OCR extraction failed"));
         }
     }
+    @GetMapping("/api/v1/version")
+    public String version() {
+        return "v2-cors-filter-deployed"; // Change this string each deploy
+    }
 
     @PostMapping("/syncProfile")
     public ResponseEntity<User> syncProfile(

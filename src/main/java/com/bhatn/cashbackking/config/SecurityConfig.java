@@ -30,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/debug/**").permitAll() // ← add this
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/users/**", "/api/v1/payout-status", "/api/v1/receipts/**").authenticated()
+                        .requestMatchers("/api/v1/version").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
