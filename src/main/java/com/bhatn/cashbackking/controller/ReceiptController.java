@@ -104,7 +104,9 @@ public class ReceiptController {
         log.info("User {} is uploading a receipt", userId);
 
         try {
-            ExtractionResult result = billAnalyzer.analyze(file.getBytes());
+            // Core Fix: Read directly from the standard input stream to bypass multipart metadata noise
+            byte[] cleanImageBytes = file.getInputStream().readAllBytes();
+            ExtractionResult result = billAnalyzer.analyze(cleanImageBytes);
 
             Receipt receipt = new Receipt();
             receipt.setUserId(userId);
