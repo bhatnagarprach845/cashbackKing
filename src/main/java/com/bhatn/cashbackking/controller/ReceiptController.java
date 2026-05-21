@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/receipts")
+@RequestMapping("/api/v1")
 @Slf4j
 public class ReceiptController {
 
@@ -95,7 +95,7 @@ public class ReceiptController {
      * 2. Local Upload (Development/Web App)
      */
     @Transactional
-    @PostMapping("/receipts/upload")
+    @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadLocal(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal Jwt jwt) {

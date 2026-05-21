@@ -24,7 +24,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                         return;
                     }
 
-            const res = await axios.get(`${BASE_URL}/receipts/payout-status`, {
+            const res = await axios.get(`${BASE_URL}payout-status`, {
                 headers: { 'Authorization': `Bearer ${token}`,
                          'Content-Type': 'application/json' }
             });
@@ -63,7 +63,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
-            await axios.post(`${BASE_URL}/receipts/syncProfile`, profileForm, {
+            await axios.post(`${BASE_URL}/syncProfile`, profileForm, {
                 headers: { 'Authorization': `Bearer ${token}`,
                  'Content-Type': 'application/json'
                  }
@@ -89,7 +89,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
             console.log ("Dashboard API.js -- BASE_URL :: ", BASE_URL);
-            const res = await axios.post(`${BASE_URL}/receipts/redeem`,
+            const res = await axios.post(`${BASE_URL}/redeem`,
                 { amount: amountToSend },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
