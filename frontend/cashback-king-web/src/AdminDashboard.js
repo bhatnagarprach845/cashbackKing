@@ -312,7 +312,7 @@ const getAuthHeader = async () => {
                                                     <td>₹{w.currentBalance?.toFixed(2)}</td>
                                                 </tr>
                                             );
-                                        })}
+                                        ))}
                         </tbody>
                     </table>
                 </>
