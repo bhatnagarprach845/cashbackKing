@@ -280,12 +280,39 @@ const getAuthHeader = async () => {
                         <thead><tr style={styles.headerRow}><th>Name</th><th>UPI</th><th>Balance</th></tr></thead>
                         <tbody>
                             {wallets.map(w => (
-                                <tr key={w.userId} style={styles.row}>
-                                    <td><button onClick={() => handleUserClick(w.userId, w.fullName)} style={styles.linkButton}>{w.fullName}</button></td>
-                                    <td>{w.upiId || 'N/A'}</td>
-                                    <td>₹{w.currentBalance?.toFixed(2)}</td>
-                                </tr>
-                            ))}
+                            // Core Logic: Dynamically check if this user has any active redemption requests
+                                const hasPending = payouts.some(p => p.userId === w.userId && (p.status === 'REDEEMED' || p.status === 'PENDING'));
+                                return (
+                                                <tr key={w.userId} style={styles.row}>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <button onClick={() => handleUserClick(w.userId, w.fullName)} style={styles.linkButton}>
+                                                                {w.fullName}
+                                                            </button>
+
+                                                            {/* Visual Indicator Pill */}
+                                                            {hasPending && (
+                                                                <span style={{
+                                                                    backgroundColor: '#dc3545', // Crimson Red
+                                                                    color: 'white',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px',
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 'bold',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px',
+                                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                                                }}>
+                                                                    Pending 💸
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td>{w.upiId || 'N/A'}</td>
+                                                    <td>₹{w.currentBalance?.toFixed(2)}</td>
+                                                </tr>
+                                            );
+                                        })}
                         </tbody>
                     </table>
                 </>
