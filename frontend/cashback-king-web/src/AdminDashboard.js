@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { fetchAuthSession } from 'aws-amplify/auth'; // 1. Import this
+import { fetchAuthSession } from 'aws-amplify/auth';
 
-//const BASE_URL = "http://localhost:8080/api/v1/admin";
 const HOST = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-
-// 2. Append the specific API path
 const BASE_URL = `${HOST}/api/v1/admin`;
 console.log("Prachi :: Connecting to backend at:", BASE_URL);
 
@@ -22,12 +19,11 @@ const AdminDashboard = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [animatingBalance, setAnimatingBalance] = useState(null);
 
-const getAuthHeader = async () => {
+    const getAuthHeader = async () => {
         const session = await fetchAuthSession();
         const token = session.tokens?.idToken?.toString();
         return { Authorization: `Bearer ${token}` };
     };
-
 
     // --- Helper: Status Styling ---
     const getStatusStyle = (status) => {
@@ -43,7 +39,7 @@ const getAuthHeader = async () => {
     // --- API Methods ---
     const fetchInitialData = async () => {
         try {
-            const headers = await getAuthHeader(); // Get fresh token
+            const headers = await getAuthHeader();
             const [walletRes, payoutRes] = await Promise.all([
                 axios.get(`${BASE_URL}/wallets`, { headers }),
                 axios.get(`${BASE_URL}/payouts`, { headers })
@@ -60,7 +56,7 @@ const getAuthHeader = async () => {
         const id = selectedUser.id;
 
         try {
-            const headers = await getAuthHeader(); // Get fresh token
+            const headers = await getAuthHeader();
             if (viewMode === 'activity') {
                 const res = await axios.get(`${BASE_URL}/users/${id}/transactions`, { headers });
                 setUserHistory(res.data);
@@ -104,7 +100,7 @@ const getAuthHeader = async () => {
         if (!window.confirm(`Approve payment of ₹${absAmount}?`)) return;
 
         try {
-            const headers = await getAuthHeader(); // Get fresh token
+            const headers = await getAuthHeader();
             const res = await axios.post(`${BASE_URL}/payouts/approve/${transactionId}`, {}, { headers });
             setIsSyncing(true);
             animateValue(absAmount, 0, 1000, setAnimatingBalance);
@@ -139,7 +135,6 @@ const getAuthHeader = async () => {
         link.click();
     };
 
-    // Add this new helper function
     const handleDownload = async (endpoint, fileName) => {
         try {
             const session = await fetchAuthSession();
@@ -147,10 +142,9 @@ const getAuthHeader = async () => {
 
             const response = await axios.get(`${BASE_URL}${endpoint}`, {
                 headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob', // CRITICAL: Tells Axios to handle binary data
+                responseType: 'blob',
             });
 
-            // Create a hidden link to trigger the download
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -158,7 +152,6 @@ const getAuthHeader = async () => {
             document.body.appendChild(link);
             link.click();
 
-            // Cleanup
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
         } catch (err) {
@@ -279,40 +272,40 @@ const getAuthHeader = async () => {
                     <table style={styles.table}>
                         <thead><tr style={styles.headerRow}><th>Name</th><th>UPI</th><th>Balance</th></tr></thead>
                         <tbody>
-                            {wallets.map(w => (
-                            // Core Logic: Dynamically check if this user has any active redemption requests
+                            {wallets.map(w => {
+                                // FIXED: Changed to block scope curly brace to allow constant variables
                                 const hasPending = payouts.some(p => p.userId === w.userId && (p.status === 'REDEEMED' || p.status === 'PENDING'));
                                 return (
-                                                <tr key={w.userId} style={styles.row}>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <button onClick={() => handleUserClick(w.userId, w.fullName)} style={styles.linkButton}>
-                                                                {w.fullName}
-                                                            </button>
+                                    <tr key={w.userId} style={styles.row}>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <button onClick={() => handleUserClick(w.userId, w.fullName)} style={styles.linkButton}>
+                                                    {w.fullName}
+                                                </button>
 
-                                                            {/* Visual Indicator Pill */}
-                                                            {hasPending && (
-                                                                <span style={{
-                                                                    backgroundColor: '#dc3545', // Crimson Red
-                                                                    color: 'white',
-                                                                    padding: '2px 8px',
-                                                                    borderRadius: '12px',
-                                                                    fontSize: '10px',
-                                                                    fontWeight: 'bold',
-                                                                    textTransform: 'uppercase',
-                                                                    letterSpacing: '0.5px',
-                                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                                                }}>
-                                                                    Pending 💸
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td>{w.upiId || 'N/A'}</td>
-                                                    <td>₹{w.currentBalance?.toFixed(2)}</td>
-                                                </tr>
-                                            );
-                                        ))}
+                                                {/* Visual Indicator Pill */}
+                                                {hasPending && (
+                                                    <span style={{
+                                                        backgroundColor: '#dc3545',
+                                                        color: 'white',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold',
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.5px',
+                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                                    }}>
+                                                        Pending 💸
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td>{w.upiId || 'N/A'}</td>
+                                        <td>₹{w.currentBalance?.toFixed(2)}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </>
