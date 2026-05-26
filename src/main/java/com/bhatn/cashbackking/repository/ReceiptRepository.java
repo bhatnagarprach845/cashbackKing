@@ -69,4 +69,6 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     // 5. Regional Analytics: Find total spending by ZIP code
     @Query("SELECT r.merchantZipCode, SUM(r.totalAmount) FROM Receipt r GROUP BY r.merchantZipCode")
     List<Object[]> getSpendingByZipCode();
+
+    boolean existsByFingerprintHashAndIdNot(String hash, Long id);
 }
