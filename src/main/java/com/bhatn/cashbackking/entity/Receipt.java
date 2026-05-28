@@ -26,6 +26,7 @@ public class Receipt {
     private String merchantZipCode;
     private BigDecimal totalAmount;
     private LocalDate purchaseDate;
+    private String fingerprintHash;
     private String s3Key;
 
     // The missing piece: Tracks the lifecycle of the receipt

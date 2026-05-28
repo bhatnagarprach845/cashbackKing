@@ -19,7 +19,8 @@ public enum ReceiptStatus {
     REJECTED("Receipt rejected. This may be a duplicate or unreadable."),
 
     /** System error during OCR or database save; requires manual or auto-retry. */
-    FAILED("Processing failed due to a system error. Please try again.");
+    FAILED("Processing failed due to a system error. Please try again."),
+    FLAGGED_FOR_REVIEW;
 
     private final String description;
 

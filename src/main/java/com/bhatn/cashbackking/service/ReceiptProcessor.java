@@ -24,6 +24,7 @@ import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -86,9 +87,18 @@ public class ReceiptProcessor {
 
     @Transactional
     public void processCashback(Receipt receipt) {
-        // 3. FRAUD CHECK: Composite Cryptographic Hash Checking
-        if (isDuplicateHash(receipt) || isDuplicate(receipt)) {
-            rejectReceipt(receipt, "FRAUD_ALERT: Identity collision. Bill has already been processed.");
+        // 1. Generate the hash once so we can use it for both lookup and persistence
+        String currentFingerprint = calculateFingerprintHash(receipt);
+        receipt.setFingerprintHash(currentFingerprint); // Keep the database row stamped!
+
+        // 2. CRITICAL FIX: Run your cross-user collusion and standard deep-check validations
+        if (isCrossUserDuplicate(receipt, currentFingerprint) || isDuplicate(receipt)) {
+            // If isCrossUserDuplicate flagged it for review, don't overwrite status to REJECTED
+            if (receipt.getStatus() != ReceiptStatus.FLAGGED_FOR_REVIEW) {
+                rejectReceipt(receipt, "FRAUD_ALERT: Identity collision. Bill has already been processed.");
+            } else {
+                receiptRepository.save(receipt); // Save the FLAGGED_FOR_REVIEW status state
+            }
             return;
         }
 
@@ -115,6 +125,32 @@ public class ReceiptProcessor {
 
         receipt.setStatus(ReceiptStatus.PROCESSED);
         receiptRepository.save(receipt);
+    }
+
+    /**
+     * Helper: Abstracted Hash Generator to clean up code redundancy
+     */
+    private String calculateFingerprintHash(Receipt receipt) {
+        try {
+            String compositeRawString = String.format("%s_%s_%s",
+                    receipt.getMerchantName(),
+                    receipt.getTotalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString(),
+                    receipt.getPurchaseDate() != null ? receipt.getPurchaseDate().toString() : "NODATE");
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(compositeRawString.getBytes("UTF-8"));
+
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            log.error("Prachi :: SHA-256 calculation exception: ", e);
+            return "ERROR_" + System.currentTimeMillis();
+        }
     }
 
     /**
@@ -184,7 +220,7 @@ public class ReceiptProcessor {
     /**
      * Rule 3: Unique Composite Cryptographic Fingerprint Check
      */
-    private boolean isDuplicateHash(Receipt receipt) {
+    /*private boolean isDuplicateHash(Receipt receipt) {
         try {
             String compositeRawString = String.format("%s_%s_%s",
                     receipt.getMerchantName(),
@@ -210,6 +246,32 @@ public class ReceiptProcessor {
             log.error("Prachi :: SHA-256 process calculation hit error exception, tracing back directly: ", e);
             return false;
         }
+    }*/
+
+    private boolean isCrossUserDuplicate(Receipt receipt, String newCalculatedHash) {
+        // 1. Look for any existing receipt in the database with this exact cryptographic fingerprint
+        Optional<Receipt> matchingReceiptOpt = receiptRepository.findByFingerprintHash(newCalculatedHash);
+
+        if (matchingReceiptOpt.isPresent()) {
+            Receipt existingReceipt = matchingReceiptOpt.get();
+
+            // If the same user uploads it again -> Standard Duplicate (Auto-Reject)
+            if (existingReceipt.getUserId().equals(receipt.getUserId())) {
+                log.info("Prachi :: Standard duplicate detected for same user.");
+                return true;
+            }
+
+            // If a DIFFERENT user uploads it -> Fraud / Collusion Alert!
+            else {
+                log.warn("Prachi :: CRITICAL FRAUD ALERT! User {} uploaded a receipt identical to User {}",
+                        receipt.getUserId(), existingReceipt.getUserId());
+
+                // Instead of auto-rejecting a potentially real coincidence, push to a pending admin review state
+                receipt.setStatus(ReceiptStatus.FLAGGED_FOR_REVIEW);
+                return true;
+            }
+        }
+        return false; // Pristine, unique transaction
     }
 
     private boolean isDuplicate(Receipt receipt) {

@@ -71,4 +71,9 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     List<Object[]> getSpendingByZipCode();
 
     boolean existsByFingerprintHashAndIdNot(String hash, Long id);
+    // Supports your custom isCrossUserDuplicate Optional lookup
+    Optional<Receipt> findByFingerprintHash(String fingerprintHash);
+
+    // Dynamic query helper for deep data verification
+    boolean existsByMerchantNameAndTotalAmountAndPurchaseDate(String merchantName, java.math.BigDecimal totalAmount, java.time.LocalDate purchaseDate);
 }
