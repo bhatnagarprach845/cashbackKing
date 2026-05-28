@@ -104,7 +104,7 @@ public class ReceiptProcessor {
 
                 receipt.setStatus(ReceiptStatus.FLAGGED_FOR_REVIEW);
                 // Clear items collection so Cascade rules don't persist duplicated layout details
-                receipt.getItems().clear();
+                receipt.setItems(new java.util.ArrayList<>());
                 receiptRepository.save(receipt);
                 return;
             }
@@ -173,10 +173,9 @@ public class ReceiptProcessor {
     private void rejectReceipt(Receipt receipt, String reason) {
         log.warn("Prachi :: {} for User: {}", reason, receipt.getUserId());
         receipt.setStatus(ReceiptStatus.REJECTED);
-        // Clear items collection before saving to avoid cluttering the database with rejected sub-items
-        if (receipt.getItems() != null) {
-            receipt.getItems().clear();
-        }
+
+        // Core Fix: Break the cascade chain safely by removing the tracking reference pointer entirely
+        receipt.setItems(new java.util.ArrayList<>());
         receiptRepository.save(receipt);
     }
 

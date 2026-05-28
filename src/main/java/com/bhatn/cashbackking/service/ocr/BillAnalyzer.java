@@ -115,18 +115,22 @@ public class BillAnalyzer {
      * block elements to safely read the physical text strings located at the absolute top of the page image.
      */
     private String extractTopBlockHeuristic(ExpenseDocument doc) {
-        if (doc.blocks() == null) {
+        if (doc == null || doc.blocks() == null) {
             return "UNKNOWN_MERCHANT";
         }
 
         return doc.blocks().stream()
-                // Only inspect actual lines of text layout structures
-                .filter(b -> b.blockType() == BlockType.LINE && b.geometry() != null && b.geometry().boundingBox() != null)
-                // Filter for lines sitting completely inside the top 15% area of the image (top < 0.15)
+                // Null-safe filtering for block types, geometries, and bounding boxes
+                .filter(b -> b != null &&
+                        b.blockType() != null &&
+                        BlockType.LINE.equals(b.blockType()) &&
+                        b.geometry() != null &&
+                        b.geometry().boundingBox() != null)
+                // Limit bounds to the top 15% of the physical image asset height
                 .filter(b -> b.geometry().boundingBox().top() < 0.15f)
-                // Filter out lines that have no letters (like standalone numbers or telephone dashes)
+                // Ensure the line contains actual text and letters
                 .filter(b -> b.text() != null && b.text().replaceAll("[^A-Za-z]", "").length() > 2)
-                // Sort by position from the absolute top edge coordinate downward
+                // Find the element closest to the absolute top edge
                 .min(Comparator.comparingDouble(b -> b.geometry().boundingBox().top()))
                 .map(Block::text)
                 .orElse("UNKNOWN_MERCHANT");
