@@ -94,7 +94,8 @@ public class ReceiptProcessor {
         // Check if the hash matches an existing receipt first
         Optional<Receipt> matchingReceiptOpt = receiptRepository.findByFingerprintHash(currentFingerprint);
 
-        if (matchingReceiptOpt.isPresent()) {
+        // Verify that a match exists AND it is not the exact row we are currently processing
+        if (matchingReceiptOpt.isPresent() && !matchingReceiptOpt.get().getId().equals(receipt.getId())) {
             Receipt existingReceipt = matchingReceiptOpt.get();
 
             // Case A: Collision belongs to a DIFFERENT user -> Fraud Review Track
@@ -109,14 +110,14 @@ public class ReceiptProcessor {
                 return;
             }
 
-            // Case B: Collision belongs to the SAME user -> Definitive Duplicate
+            // Case B: Collision belongs to the SAME user (An old separate physical bill submission)
             else {
                 rejectReceipt(receipt, "FRAUD_ALERT: Identity collision. Bill has already been processed by this account.");
                 return;
             }
         }
 
-        // Tier C Standby Check: If hash was pristine but deep sub-items conflict, protect consistency metrics
+        // Tier C Standby Check: If hash was pristine but deep sub-items conflict
         if (isDuplicate(receipt)) {
             rejectReceipt(receipt, "FRAUD_ALERT: Deep item matches indicate duplicated receipt content profiles.");
             return;
@@ -228,19 +229,35 @@ public class ReceiptProcessor {
     }
 
     private boolean isDuplicate(Receipt receipt) {
+        // 1. Safe Fallback: If no items were extracted by Textract, treat the receipt as unique if the top-level hash wasn't found
         if (receipt.getItems() == null || receipt.getItems().isEmpty()) {
-            return receiptRepository.existsByMerchantNameAndTotalAmountAndPurchaseDate(
-                    receipt.getMerchantName(), receipt.getTotalAmount(), receipt.getPurchaseDate()
-            );
+            log.info("Prachi :: No line items found to analyze. Relying completely on pristine hash uniqueness states.");
+            return false;
         }
+
+        int matchedItemsCount = 0;
+
         for (ReceiptItem newItem : receipt.getItems()) {
             boolean itemWasSeenBefore = receiptRepository.existsByDeepCheck(
-                    receipt.getId(), receipt.getMerchantName(), receipt.getTotalAmount(),
-                    receipt.getPurchaseDate(), newItem.getDescription(), newItem.getUnitPrice()
+                    receipt.getId(),
+                    receipt.getMerchantName(),
+                    receipt.getTotalAmount(),
+                    receipt.getPurchaseDate(),
+                    newItem.getDescription(),
+                    newItem.getUnitPrice()
             );
-            if (!itemWasSeenBefore) return false;
+
+            if (itemWasSeenBefore) {
+                matchedItemsCount++;
+            }
         }
-        return true;
+
+        // 2. Clear Definition: Only flag as a deep duplicate if more than 75% of individual line items match
+        // an existing transaction under this exact merchant, total, and date context.
+        double duplicateThresholdRatio = (double) matchedItemsCount / receipt.getItems().size();
+        log.info("Prachi :: Line items match density calculated at: {}%", duplicateThresholdRatio * 100);
+
+        return duplicateThresholdRatio >= 0.75;
     }
 
     private byte[] downloadFromS3(String bucket, String key) {
