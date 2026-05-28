@@ -20,7 +20,7 @@ public class CorsFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) req;
         HttpServletResponse response = (HttpServletResponse) res;
 
-        response.setHeader("Access-Control-Allow-Origin", "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com");
+        //response.setHeader("Access-Control-Allow-Origin", "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com");
         response.setHeader("Access-Control-Allow-Origin", "https://feature-duplicatecollision.dwp81oqt95zeu.amplifyapp.com");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
