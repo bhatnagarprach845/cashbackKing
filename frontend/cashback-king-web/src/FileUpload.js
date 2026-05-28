@@ -57,6 +57,19 @@ const FileUpload = (props) => {
     };
 
     return (
+        <button
+            onClick={onUpload}
+            // Ensure the button physically deactivates completely the exact millisecond processing begins
+            disabled={!file || status === "Uploading..."}
+            style={{
+                ...styles.button,
+                // Optional UX polish: make it look grey/disabled so the user knows it's working
+                backgroundColor: (status === "Uploading...") ? "#6c757d" : "#28a745",
+                cursor: (status === "Uploading...") ? "not-allowed" : "pointer"
+            }}
+        >
+            {status === "Uploading..." ? "Processing..." : "Submit Bill"}
+        </button>
         <div style={styles.container}>
             <h2>Cashback King</h2>
             <p>Select your bill to earn rewards</p>
