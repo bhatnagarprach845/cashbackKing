@@ -4,7 +4,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 
 const FileUpload = (props) => {
     const [file, setFile] = useState(null);
-    const [preview, setPreview] = useState(null); // New state for image preview
+    const [preview, setPreview] = useState(null);
     const [status, setStatus] = useState("Idle");
 
     const onFileChange = (event) => {
@@ -12,7 +12,6 @@ const FileUpload = (props) => {
         setFile(selectedFile);
 
         if (selectedFile) {
-            // Create a temporary URL for the image
             const objectUrl = URL.createObjectURL(selectedFile);
             setPreview(objectUrl);
         }
@@ -20,58 +19,48 @@ const FileUpload = (props) => {
 
     const onUpload = async () => {
         if (!file) return alert("Please select a file first!");
-
+        if (status === "Uploading...") return; // Safeguard circuit-breaker
 
         const formData = new FormData();
         formData.append("file", file);
+
+        // Disable UX immediately to avoid asynchronous race conditions
         setStatus("Uploading...");
 
-       try {
+        try {
             const session = await fetchAuthSession();
-           const token = session.tokens?.idToken?.toString();
+            const token = session.tokens?.idToken?.toString();
 
-             // 2. Use the environment variable instead of localhost
-           const apiUrl = process.env.REACT_APP_API_URL;
-           const response = await axios.post(`${apiUrl}/api/v1/upload`, formData, {
-               headers: {
-                               'Authorization': `Bearer ${token}`,
-                               'Content-Type': 'multipart/form-data'
-                           }
-           });
+            const apiUrl = process.env.REACT_APP_API_URL;
+            const response = await axios.post(`${apiUrl}/api/v1/upload`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
             const receiptStatus = response.data.status;
-           if (receiptStatus === "REJECTED") {
-                       setStatus("Duplicate Detected! This bill has already been rewarded.");
-                   } else if (receiptStatus === "PROCESSED") {
-                       setStatus("Success! Reward added to your wallet.");
-                       if (props.onUploadSuccess) {
-                           props.onUploadSuccess();
-                       }
-                   } else {
-                       setStatus("Bill processed with issues. Check history.");
-                   }
+            if (receiptStatus === "REJECTED") {
+                setStatus("Duplicate Detected! This bill has already been rewarded.");
+            } else if (receiptStatus === "PROCESSED") {
+                setStatus("Success! Reward added to your wallet.");
+                if (props.onUploadSuccess) {
+                    props.onUploadSuccess();
+                }
+            } else if (receiptStatus === "FLAGGED_FOR_REVIEW") {
+                setStatus("Bill flagged for review due to systemic anomalies.");
+            } else {
+                setStatus("Bill processed with issues. Check history.");
+            }
 
-
-       } catch (error) {
-           setStatus("Failed to upload.");
-       }
+        } catch (error) {
+            setStatus("Failed to upload.");
+        }
     };
 
     return (
-        <button
-            onClick={onUpload}
-            // Ensure the button physically deactivates completely the exact millisecond processing begins
-            disabled={!file || status === "Uploading..."}
-            style={{
-                ...styles.button,
-                // Optional UX polish: make it look grey/disabled so the user knows it's working
-                backgroundColor: (status === "Uploading...") ? "#6c757d" : "#28a745",
-                cursor: (status === "Uploading...") ? "not-allowed" : "pointer"
-            }}
-        >
-            {status === "Uploading..." ? "Processing..." : "Submit Bill"}
-        </button>
         <div style={styles.container}>
-            <h2>Cashback King</h2>
+            <h2>Cashback King (Dev Sandbox)</h2>
             <p>Select your bill to earn rewards</p>
 
             <input type="file" accept="image/*" onChange={onFileChange} style={styles.input} />
@@ -83,10 +72,15 @@ const FileUpload = (props) => {
                 </div>
             )}
 
+            {/* FIXED BUTTON: Wrapped inside the parent element and styled dynamically */}
             <button
                 onClick={onUpload}
                 disabled={!file || status === "Uploading..."}
-                style={styles.button}
+                style={{
+                    ...styles.button,
+                    backgroundColor: (status === "Uploading...") ? "#6c757d" : "#28a745",
+                    cursor: (status === "Uploading...") ? "not-allowed" : "pointer"
+                }}
             >
                 {status === "Uploading..." ? "Processing..." : "Submit Bill"}
             </button>
@@ -96,13 +90,12 @@ const FileUpload = (props) => {
     );
 };
 
-// Basic Styling
 const styles = {
     container: { padding: '40px', textAlign: 'center', fontFamily: 'Arial, sans-serif' },
     input: { marginBottom: '20px' },
     previewContainer: { margin: '20px auto', maxWidth: '300px', border: '2px solid #ddd', borderRadius: '8px', overflow: 'hidden' },
     image: { width: '100%', display: 'block' },
-    button: { padding: '10px 20px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' },
+    button: { padding: '10px 20px', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', transition: 'background-color 0.2s' },
     statusText: { marginTop: '20px', fontWeight: 'bold', color: '#555' }
 };
 

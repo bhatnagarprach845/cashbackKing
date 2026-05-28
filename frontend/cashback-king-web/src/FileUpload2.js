@@ -19,9 +19,11 @@ const FileUpload2 = (props) => {
 
     const onUpload = async () => {
         if (!file) return alert("Please snap a photo of your receipt first!");
+        if (status === "Uploading...") return;
 
         const formData = new FormData();
         formData.append("file", file);
+
         setStatus("Uploading...");
 
         try {
@@ -44,9 +46,12 @@ const FileUpload2 = (props) => {
                 if (props.onUploadSuccess) {
                     props.onUploadSuccess();
                 }
+            } else if (receiptStatus === "FLAGGED_FOR_REVIEW") {
+                setStatus("Receipt captured! Processing pending verification review.");
             } else {
                 setStatus("Bill processed with issues. Check history.");
             }
+
         } catch (error) {
             setStatus("Failed to upload.");
         }
@@ -57,10 +62,7 @@ const FileUpload2 = (props) => {
             <h2>Cashback King</h2>
             <p>Snap a live photo of your bill to earn rewards</p>
 
-            {/* CRITICAL CHANGES FOR PRODUCTION ANTI-FRAUD:
-              1. accept restricts inputs strictly to standard web image structures.
-              2. capture="environment" tells mobile browsers to spin up the rear camera lens immediately.
-            */}
+            {/* Production camera restrictions locked into place */}
             <input
                 type="file"
                 accept="image/png, image/jpeg"
@@ -78,7 +80,11 @@ const FileUpload2 = (props) => {
             <button
                 onClick={onUpload}
                 disabled={!file || status === "Uploading..."}
-                style={styles.button}
+                style={{
+                    ...styles.button,
+                    backgroundColor: (status === "Uploading...") ? "#6c757d" : "#007bff",
+                    cursor: (status === "Uploading...") ? "not-allowed" : "pointer"
+                }}
             >
                 {status === "Uploading..." ? "Analyzing Photo..." : "Submit Photo"}
             </button>
@@ -93,7 +99,7 @@ const styles = {
     input: { marginBottom: '20px' },
     previewContainer: { margin: '20px auto', maxWidth: '300px', border: '2px solid #ddd', borderRadius: '8px', overflow: 'hidden' },
     image: { width: '100%', display: 'block' },
-    button: { padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' },
+    button: { padding: '10px 20px', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', transition: 'background-color 0.2s' },
     statusText: { marginTop: '20px', fontWeight: 'bold', color: '#555' }
 };
 
