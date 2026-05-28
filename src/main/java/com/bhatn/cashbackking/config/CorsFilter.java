@@ -20,8 +20,20 @@ public class CorsFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) req;
         HttpServletResponse response = (HttpServletResponse) res;
 
-        //response.setHeader("Access-Control-Allow-Origin", "https://feature-initialcommit.dwp81oqt95zeu.amplifyapp.com");
-        response.setHeader("Access-Control-Allow-Origin", "https://feature-duplicatecollision.dwp81oqt95zeu.amplifyapp.com");
+        // 1. Fetch the dynamic incoming origin string from the browser request
+        String incomingOrigin = request.getHeader("Origin");
+
+        if (incomingOrigin != null) {
+            // 2. Core Fix: Validate if the origin is localhost or matching your Amplify domain profile
+            if (incomingOrigin.equals("http://localhost:3000") ||
+                    incomingOrigin.endsWith(".amplifyapp.com")) {
+
+                // Echo the verified valid origin right back to the client headers list
+                response.setHeader("Access-Control-Allow-Origin", incomingOrigin);
+            }
+        }
+
+
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
         response.setHeader("Access-Control-Allow-Credentials", "true");
