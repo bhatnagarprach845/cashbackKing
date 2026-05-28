@@ -13,13 +13,21 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
 public class BillAnalyzer {
+
     @Autowired
     private TextractClient textractClient;
+
+    // Compile regex patterns once to maximize serverless performance execution speeds
+    private static final Pattern MGR_PATTERN = Pattern.compile("(?i)(MGR|MANAGER|STST|STORE|CASHIER|OP|HOST|TELLER|SERVED BY).*");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b");
+    private static final Pattern CLEANUP_PATTERN = Pattern.compile("[^A-Z0-9\\s&'-]");
 
     public ExtractionResult analyze(byte[] imageBytes) {
         AnalyzeExpenseRequest request = AnalyzeExpenseRequest.builder()
@@ -44,9 +52,18 @@ public class BillAnalyzer {
         ExpenseDocument doc = response.expenseDocuments().get(0);
         List<ExpenseField> summaryFields = doc.summaryFields();
 
-        String merchant = getField(summaryFields, "VENDOR_NAME");
+        // Tier 1: Extract Textract's default vendor prediction
+        String rawMerchant = getField(summaryFields, "VENDOR_NAME");
         String totalStr = getField(summaryFields, "TOTAL");
         String dateStr = getField(summaryFields, "INVOICE_RECEIPT_DATE");
+
+        // Tier 2 & 3: Fall back to top-of-page raw geometry if prediction is absent or contains layout noise
+        if (rawMerchant == null || isNoise(rawMerchant)) {
+            rawMerchant = extractTopBlockHeuristic(doc);
+        }
+
+        // Clean, sanitize and normalize the merchant identity generically
+        String finalMerchantName = normalizeVendor(rawMerchant);
 
         // Map Line Items safely
         List<ExtractionResult.LineItemDTO> items = doc.lineItemGroups().stream()
@@ -54,10 +71,20 @@ public class BillAnalyzer {
                 .map(this::mapToLineItemDTO)
                 .collect(Collectors.toList());
 
+        // Defensive Date Parsing Check to protect from runtime crashes
+        LocalDate purchaseDate = LocalDate.now();
+        if (dateStr != null && !dateStr.trim().isEmpty()) {
+            try {
+                purchaseDate = LocalDate.parse(dateStr.trim(), flexibleFormatter);
+            } catch (Exception e) {
+                purchaseDate = LocalDate.now();
+            }
+        }
+
         return ExtractionResult.builder()
-                .merchantName(merchant != null ? merchant : "UNKNOWN")
+                .merchantName(finalMerchantName)
                 .totalAmount(parseAmount(totalStr))
-                .purchaseDate(LocalDate.parse(dateStr, flexibleFormatter))
+                .purchaseDate(purchaseDate)
                 .lineItems(items)
                 .build();
     }
@@ -65,7 +92,6 @@ public class BillAnalyzer {
     private ExtractionResult.LineItemDTO mapToLineItemDTO(LineItemFields lineItem) {
         List<ExpenseField> fields = lineItem.lineItemExpenseFields();
 
-        // Textract line item types: ITEM, PRICE, QUANTITY, UNIT_PRICE
         String description = getField(fields, "ITEM");
         String priceStr = getField(fields, "PRICE");
         String qtyStr = getField(fields, "QUANTITY");
@@ -79,6 +105,55 @@ public class BillAnalyzer {
                 .build();
     }
 
+    private boolean isNoise(String text) {
+        String upper = text.toUpperCase();
+        return upper.contains("MGR:") || upper.contains("MANAGER:") || upper.contains("CASHIER:") || upper.length() < 2;
+    }
+
+    /**
+     * FIXED TIER 3 HEURISTIC: Pulls from structural line item geometries across the document
+     * block elements to safely read the physical text strings located at the absolute top of the page image.
+     */
+    private String extractTopBlockHeuristic(ExpenseDocument doc) {
+        if (doc.blocks() == null) {
+            return "UNKNOWN_MERCHANT";
+        }
+
+        return doc.blocks().stream()
+                // Only inspect actual lines of text layout structures
+                .filter(b -> b.blockType() == BlockType.LINE && b.geometry() != null && b.geometry().boundingBox() != null)
+                // Filter for lines sitting completely inside the top 15% area of the image (top < 0.15)
+                .filter(b -> b.geometry().boundingBox().top() < 0.15f)
+                // Filter out lines that have no letters (like standalone numbers or telephone dashes)
+                .filter(b -> b.text() != null && b.text().replaceAll("[^A-Za-z]", "").length() > 2)
+                // Sort by position from the absolute top edge coordinate downward
+                .min(Comparator.comparingDouble(b -> b.geometry().boundingBox().top()))
+                .map(Block::text)
+                .orElse("UNKNOWN_MERCHANT");
+    }
+
+    private String normalizeVendor(String rawVendor) {
+        if (rawVendor == null || rawVendor.trim().isEmpty()) {
+            return "UNKNOWN_MERCHANT";
+        }
+
+        String clean = rawVendor.toUpperCase().replaceAll("[\\r\\n]+", " ").trim();
+
+        // 1. Remove manager titles, register numbers or checkout operators
+        clean = MGR_PATTERN.matcher(clean).replaceAll("").trim();
+
+        // 2. Remove standard store telephone sequence matches
+        clean = PHONE_PATTERN.matcher(clean).replaceAll("").trim();
+
+        // 3. Keep only standard business characters (Letters, Numbers, spaces, &, ', and -)
+        clean = CLEANUP_PATTERN.matcher(clean).replaceAll("").trim();
+
+        // 4. Collapse multiple spaces down to a single formatting space
+        clean = clean.replaceAll("\\s+", " ");
+
+        return clean.isEmpty() ? "UNKNOWN_MERCHANT" : clean.trim();
+    }
+
     private Integer parseQuantity(String qty) {
         if (qty == null) return 1;
         try {
@@ -87,7 +162,7 @@ public class BillAnalyzer {
         } catch (Exception e) {
             return 1;
         }
-    } // FIXED: Added missing closing brace
+    }
 
     private String getField(List<ExpenseField> fields, String type) {
         return fields.stream()
@@ -109,7 +184,6 @@ public class BillAnalyzer {
     private LocalDateTime parseDate(String dateStr) {
         if (dateStr == null) return LocalDateTime.now();
         try {
-            // Textract often returns YYYY-MM-DD. We add time to satisfy LocalDateTime.
             return LocalDateTime.parse(dateStr.contains("T") ? dateStr : dateStr + "T00:00:00");
         } catch (Exception e) {
             return LocalDateTime.now();

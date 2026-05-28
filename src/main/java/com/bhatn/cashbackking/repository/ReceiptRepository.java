@@ -75,5 +75,5 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     Optional<Receipt> findByFingerprintHash(String fingerprintHash);
 
     // Dynamic query helper for deep data verification
-    boolean existsByMerchantNameAndTotalAmountAndPurchaseDate(String merchantName, java.math.BigDecimal totalAmount, java.time.LocalDate purchaseDate);
+
 }
