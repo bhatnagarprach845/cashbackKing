@@ -72,7 +72,7 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
 
     boolean existsByFingerprintHashAndIdNot(String hash, Long id);
     // Supports your custom isCrossUserDuplicate Optional lookup
-    Optional<Receipt> findByFingerprintHash(String fingerprintHash);
+    List<Receipt> findByFingerprintHash(String fingerprintHash);
 
     // Dynamic query helper for deep data verification
 

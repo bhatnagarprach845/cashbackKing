@@ -107,7 +107,7 @@ public class BillAnalyzer {
 
     private boolean isNoise(String text) {
         String upper = text.toUpperCase();
-        return upper.contains("MGR:") || upper.contains("MANAGER:") || upper.contains("CASHIER:") || upper.length() < 2;
+        return upper.contains("MGR") || upper.contains("MANAGER") || upper.contains("CASHIER") || upper.length() < 2;
     }
 
     /**

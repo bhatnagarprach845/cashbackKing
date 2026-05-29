@@ -92,11 +92,15 @@ public class ReceiptProcessor {
 
         // OPTIMIZATION & BUG FIX PIPELINE:
         // Check if the hash matches an existing receipt first
-        Optional<Receipt> matchingReceiptOpt = receiptRepository.findByFingerprintHash(currentFingerprint);
+        List<Receipt> matchingReceipts = receiptRepository.findByFingerprintHash(currentFingerprint);
 
-        // Verify that a match exists AND it is not the exact row we are currently processing
-        if (matchingReceiptOpt.isPresent() && !matchingReceiptOpt.get().getId().equals(receipt.getId())) {
-            Receipt existingReceipt = matchingReceiptOpt.get();
+        // 2. Filter out the current receipt row we are actively evaluating right now
+        Optional<Receipt> trueDuplicateOpt = matchingReceipts.stream()
+                .filter(existing -> !existing.getId().equals(receipt.getId()))
+                .findFirst();
+
+        if (trueDuplicateOpt.isPresent()) {
+            Receipt existingReceipt = trueDuplicateOpt.get();
 
             // Case A: Collision belongs to a DIFFERENT user -> Fraud Review Track
             if (!existingReceipt.getUserId().equals(receipt.getUserId())) {
