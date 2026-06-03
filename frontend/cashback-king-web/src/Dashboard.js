@@ -58,8 +58,11 @@ const Dashboard = ({ refreshTrigger, username }) => {
     };
 
     const isFormValid = profileForm.name.length > 2 && UPI_REGEX.test(profileForm.upiId);
+    const [isSaving, setIsSaving] = useState(false); // Add a loading state to prevent double clicks
 
     const handleProfileSubmit = async () => {
+        setIsSaving(true);
+        setUpiError(""); // Clear any existing regex errors
         try {
             const session = await fetchAuthSession();
             const token = session.tokens?.idToken?.toString();
@@ -72,6 +75,17 @@ const Dashboard = ({ refreshTrigger, username }) => {
             fetchStatus();
         } catch (err) {
             alert("Failed to save profile.");
+        // Read the custom validation error message thrown by your Spring Boot/Razorpay layer
+            const serverErrorMessage = err.response?.data?.message || err.response?.data?.error;
+
+            if (serverErrorMessage && serverErrorMessage.toLowerCase().includes("upi")) {
+                // Display the bank-level rejection message right under the input box
+                setUpiError(serverErrorMessage);
+            } else {
+                alert("Failed to save profile. Please check your network connection.");
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -206,14 +220,14 @@ const Dashboard = ({ refreshTrigger, username }) => {
 
                         <button
                             onClick={handleProfileSubmit}
-                            disabled={!isFormValid}
+                            disabled={!isFormValid || isSaving}
                             style={{
                                 ...styles.submitBtn,
                                 backgroundColor: isFormValid ? '#28a745' : '#ccc',
                                 cursor: isFormValid ? 'pointer' : 'not-allowed'
                             }}
                         >
-                            Save & Start Earning
+                            {isSaving ? 'Verifying with Bank...' : 'Save & Start Earning'}
                         </button>
                     </div>
                 </div>

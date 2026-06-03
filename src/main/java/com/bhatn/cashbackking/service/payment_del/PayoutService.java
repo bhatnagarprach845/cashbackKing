@@ -108,45 +108,73 @@ public class PayoutService {
             throw new RuntimeException(e.getMessage());
         }
     }
-    public String getOrCreateFundAccountId(User user) {
+   public String getOrCreateFundAccountId(User user) {
+    try {
+        // 1. Check if we already have the ID saved in our DB
+        if (user.getRazorpayFundAccountId() != null && !user.getRazorpayFundAccountId().isEmpty()) {
+            System.out.println("Using existing Fund Account ID for: " + user.getName());
+            return user.getRazorpayFundAccountId();
+        }
+
+        // ==========================================
+        // NEW: PRE-VALIDATION CRITICAL SECURITY GUARD
+        // ==========================================
+        System.out.println("Validating authenticity for UPI ID: " + user.getUpiId());
+
+        JSONObject validationReq = new JSONObject();
+        validationReq.put("vpa", user.getUpiId());
+
         try {
-            // 1. Check if we already have the ID saved in our DB
-            if (user.getRazorpayFundAccountId() != null && !user.getRazorpayFundAccountId().isEmpty()) {
-                System.out.println("Using existing Fund Account ID for: " + user.getName());
-                return user.getRazorpayFundAccountId();
+            // Hit Razorpay's direct validation endpoint
+            JSONObject validationRes = postToRazorpay(BASE_URL + "/payments/validate/vpa", validationReq);
+
+            boolean isValid = validationRes.optBoolean("valid", false);
+            if (!isValid) {
+                throw new IllegalArgumentException("Payout blocked: The UPI ID '" + user.getUpiId() + "' is not registered or authentic.");
             }
 
-
-            // STEP 1: Create a Contact
-            JSONObject contactReq = new JSONObject();
-            contactReq.put("name", user.getName());
-            contactReq.put("email", user.getEmail());
-            contactReq.put("type", "customer");
-
-            JSONObject contactRes = postToRazorpay(BASE_URL + "/contacts", contactReq);
-            String contactId = contactRes.getString("id");
-
-            // STEP 2: Create a Fund Account (Link UPI)
-            JSONObject faReq = new JSONObject();
-            faReq.put("contact_id", contactId);
-            faReq.put("account_type", "vpa");
-            faReq.put("vpa", new JSONObject().put("address", user.getUpiId()));
-
-            JSONObject faRes = postToRazorpay(BASE_URL + "/fund_accounts", faReq);
-            String fundAccountId = faRes.getString("id");
-
-
-            // STEP 3: Save the mapping to your database!
-            user.setRazorpayContactId(contactId);
-            user.setRazorpayFundAccountId(fundAccountId);
-            userRepository.save(user);
-
-            return fundAccountId;
+            // Optional: You can extract their official bank name here if needed
+            String bankRegisteredName = validationRes.optString("customer_name", "Unknown");
+            System.out.println("UPI Authenticated successfully! Bank Registered Name: " + bankRegisteredName);
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to register UPI with Razorpay: " + e.getMessage());
+            // Catch invalid VPA formats (Razorpay throws a 400 Bad Request for unstructured strings)
+            throw new IllegalArgumentException("Payment validation failed: Invalid UPI ID structure. Detail: " + e.getMessage());
         }
+        // ==========================================
+
+        // STEP 1: Create a Contact (Only reached if the UPI ID above is 100% genuine)
+        JSONObject contactReq = new JSONObject();
+        contactReq.put("name", user.getName());
+        contactReq.put("email", user.getEmail());
+        contactReq.put("type", "customer");
+
+        JSONObject contactRes = postToRazorpay(BASE_URL + "/contacts", contactReq);
+        String contactId = contactRes.getString("id");
+
+        // STEP 2: Create a Fund Account (Link UPI)
+        JSONObject faReq = new JSONObject();
+        faReq.put("contact_id", contactId);
+        faReq.put("account_type", "vpa");
+        faReq.put("vpa", new JSONObject().put("address", user.getUpiId()));
+
+        JSONObject faRes = postToRazorpay(BASE_URL + "/fund_accounts", faReq);
+        String fundAccountId = faRes.getString("id");
+
+        // STEP 3: Save the mapping to your database!
+        user.setRazorpayContactId(contactId);
+        user.setRazorpayFundAccountId(fundAccountId);
+        userRepository.save(user);
+
+        return fundAccountId;
+
+    } catch (IllegalArgumentException e) {
+        // Pass validation failures straight back to the controller layer cleanly
+        throw e;
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to register UPI with Razorpay: " + e.getMessage());
     }
+}
     private JSONObject postToRazorpay(String url, JSONObject payload) {
         // 1. Setup Headers with Basic Auth
         // Use the Spring-provided setBasicAuth method to avoid manual Base64 errors

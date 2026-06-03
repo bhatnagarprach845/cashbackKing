@@ -3,7 +3,7 @@ name: Trigger CodeBuild Backend1
 on:
   push:
     branches:
-      - feature-DuplicateCollision
+      - feature-ValidUpiId
 
 jobs:
   trigger-aws-build:
