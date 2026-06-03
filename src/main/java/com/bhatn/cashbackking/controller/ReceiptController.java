@@ -11,6 +11,7 @@ import com.bhatn.cashbackking.service.ReceiptProcessor;
 import com.bhatn.cashbackking.service.UserService;
 import com.bhatn.cashbackking.service.WalletService;
 import com.bhatn.cashbackking.service.ocr.BillAnalyzer;
+import com.bhatn.cashbackking.service.payment_del.PayoutService; // Ensure proper import path
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,9 +42,9 @@ public class ReceiptController {
     private final BillAnalyzer billAnalyzer;
     private final UserService userService;
     private final WalletService walletService;
+    private final PayoutService payoutService; // Injected to validate dynamically on save
     private final String bucketName;
 
-    // A single, explicit constructor handles both beans and value injections flawlessly
     public ReceiptController(
             ReceiptProcessor receiptProcessor,
             ReceiptRepository receiptRepository,
@@ -52,6 +54,7 @@ public class ReceiptController {
             BillAnalyzer billAnalyzer,
             UserService userService,
             WalletService walletService,
+            PayoutService payoutService,
             @Value("${aws.s3.bucket}") String bucketName) {
         this.receiptProcessor = receiptProcessor;
         this.receiptRepository = receiptRepository;
@@ -61,17 +64,17 @@ public class ReceiptController {
         this.billAnalyzer = billAnalyzer;
         this.userService = userService;
         this.walletService = walletService;
+        this.payoutService = payoutService;
         this.bucketName = bucketName;
     }
 
     /**
-     * 1. S3 Processing (Production/Android App)
+     * 1. S3 Processing
      */
     @PostMapping("/process-s3")
     public ResponseEntity<Map<String, Object>> processS3Receipt(
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal Jwt jwt) {
-
         String userId = jwt.getClaimAsString("sub");
         String s3Key = request.get("s3Key");
 
@@ -92,19 +95,17 @@ public class ReceiptController {
     }
 
     /**
-     * 2. Local Upload (Development/Web App)
+     * 2. Local Upload (Development)
      */
     @Transactional
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadLocal(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal Jwt jwt) {
-
         String userId = jwt.getClaimAsString("sub");
         log.info("User {} is uploading a receipt", userId);
 
         try {
-            // Core Fix: Read directly from the standard input stream to bypass multipart metadata noise
             byte[] cleanImageBytes = file.getInputStream().readAllBytes();
             ExtractionResult result = billAnalyzer.analyze(cleanImageBytes);
 
@@ -126,7 +127,6 @@ public class ReceiptController {
                     item.setReceipt(receipt);
                     return item;
                 }).collect(Collectors.toList());
-
                 receipt.setItems(entityItems);
             }
 
@@ -144,27 +144,55 @@ public class ReceiptController {
         }
     }
 
-    @GetMapping("/version") // Cleaned up path context redundancy
-    public String version() {
-        return "v2-bean-injection-fixed";
-    }
-
-    @PostMapping("/syncProfile")
-    public ResponseEntity<User> syncProfile(
-            @RequestBody Map<String, String> profileData,
+    /**
+     * New Link Verification Action: Matches frontend handleAddNewUpiSubmit()
+     */
+    @PostMapping("/addUpiId")
+    public ResponseEntity<?> addUpiId(
+            @RequestBody Map<String, String> requestBody,
             @AuthenticationPrincipal Jwt jwt) {
 
         String cognitoId = jwt.getClaimAsString("sub");
         String email = jwt.getClaimAsString("email");
+        String targetUpi = requestBody.get("upiId");
 
-        User user = userRepository.findById(cognitoId)
-                .orElse(User.builder().cognitoId(cognitoId).build());
+        if (targetUpi == null || targetUpi.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "UPI ID string is required."));
+        }
 
-        user.setEmail(email);
-        user.setName(profileData.get("name"));
-        user.setUpiId(profileData.get("upiId"));
+        try {
+            User user = userRepository.findById(cognitoId)
+                    .orElse(User.builder().cognitoId(cognitoId).email(email).build());
 
-        return ResponseEntity.ok(userRepository.save(user));
+            // Core Update: Temporarily bind string context to evaluate validation
+            String oldDefaultUpi = user.getUpiId();
+            user.setUpiId(targetUpi);
+
+            // Directly validates via your updated Razorpay /items/validate/vpa endpoint
+            payoutService.getOrCreateFundAccountId(user);
+
+            // Reaches here only if validated successfully
+            // Initialize array tracking if using a list model mapped to User layout
+            if (user.getUpiIds() == null) {
+                user.setUpiIds(new ArrayList<>());
+            }
+            if (!user.getUpiIds().contains(targetUpi)) {
+                user.getUpiIds().add(targetUpi);
+            }
+
+            // Set newly verified handle as current operational selection route
+            user.setSelectedUpi(targetUpi);
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of("message", "UPI ID verified and linked successfully!"));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("VPA validation rejected by Razorpay: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Internal profile sync breakdown", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Validation processing fault. Try again."));
+        }
     }
 
     /**
@@ -172,13 +200,11 @@ public class ReceiptController {
      */
     @GetMapping("/payout-status")
     public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt) {
-
         String userId = jwt.getClaimAsString("sub");
 
         if (userId == null) {
             userId = jwt.getClaimAsString("username");
         }
-
         if (userId == null) {
             log.error("JWT claims missing primary identity keys: {}", jwt.getClaims());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -197,13 +223,19 @@ public class ReceiptController {
         BigDecimal threshold = new BigDecimal("30.00");
         BigDecimal needed = threshold.subtract(wallet.getCurrentBalance()).max(BigDecimal.ZERO);
 
+        // Core Alignment: Construct matching the fields requested by your Dashboard.js frontend
         PayoutStatusResponse response = PayoutStatusResponse.builder()
+                .name(user != null ? user.getName() : "Valued Member")
+                .email(user != null ? user.getEmail() : "")
                 .currentBalance(wallet.getCurrentBalance())
                 .threshold(threshold)
                 .statusMessage(wallet.getCurrentBalance().compareTo(threshold) >= 0
                         ? "You are eligible for payout!"
                         : "₹" + needed + " more needed for payout")
+                // Map out array options + the active selection variable target
                 .upiId(user != null ? user.getUpiId() : null)
+                .upiIds(user != null ? user.getUpiIds() : List.of())
+                .selectedUpi(user != null ? user.getSelectedUpi() : null)
                 .recentTransactions(history)
                 .build();
 
@@ -211,20 +243,25 @@ public class ReceiptController {
     }
 
     /**
-     * 4. Redeem Method
+     * 4. Redeem Method - Picks up selected radio routing target destination
      */
     @Transactional
     @PostMapping("/redeem")
     public ResponseEntity<Map<String, String>> redeem(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal Jwt jwt) {
-
         String userId = jwt.getClaimAsString("sub");
         BigDecimal minThreshold = new BigDecimal("30.00");
 
+        String explicitTargetUpi = request.get("targetUpi") != null ? request.get("targetUpi").toString() : null;
+        log.info("Processing redemption request for user: {} to payout destination: {}", userId, explicitTargetUpi);
+
         try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User account profile records not found"));
+
             UserWallet wallet = walletRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("Wallet not found"));
+                    .orElseThrow(() -> new RuntimeException("Wallet information not found"));
 
             BigDecimal amountToRedeem = request.get("amount") != null
                     ? new BigDecimal(request.get("amount").toString())
@@ -237,14 +274,28 @@ public class ReceiptController {
             }
 
             if (wallet.getCurrentBalance().compareTo(amountToRedeem) < 0) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Insufficient balance"));
+                return ResponseEntity.badRequest().body(Map.of("error", "Insufficient wallet balance"));
             }
 
+            // Ensure the user's entity parameters lock onto the target routing string before running the logic
+            if (explicitTargetUpi != null && !explicitTargetUpi.isBlank()) {
+                user.setUpiId(explicitTargetUpi);
+                user.setSelectedUpi(explicitTargetUpi);
+                userRepository.save(user);
+            }
+
+            // Execute processing lifecycle out to RazorpayX
             walletService.redeemCashback(userId, amountToRedeem);
             return ResponseEntity.ok(Map.of("message", "Success! ₹" + amountToRedeem + " initiated."));
 
         } catch (Exception e) {
+            log.error("Redeem endpoint processing collapse", e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/version")
+    public String version() {
+        return "v3-multi-upi-validation-ready";
     }
 }
