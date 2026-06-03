@@ -60,6 +60,11 @@ public class ReceiptProcessor {
             receipt.setPurchaseDate(result.getPurchaseDate());
 
             if (result.getLineItems() != null) {
+                // Defensive Initialization Barrier
+                if (receipt.getItems() == null) {
+                    receipt.setItems(new java.util.ArrayList<>());
+                }
+
                 result.getLineItems().forEach(dto -> {
                     ReceiptItem item = new ReceiptItem();
                     item.setDescription(dto.getDescription());

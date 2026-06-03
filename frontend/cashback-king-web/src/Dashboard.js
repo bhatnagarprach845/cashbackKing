@@ -32,7 +32,6 @@ const Dashboard = ({ refreshTrigger, username }) => {
             setData(res.data);
 
             // Expecting backend to return data.upiIds as an array.
-            // Fallback default selection helper:
             if (res.data.upiIds && res.data.upiIds.length > 0) {
                 setSelectedUpi(res.data.selectedUpi || res.data.upiIds[0]);
             } else if (res.data.upiId) {
@@ -66,7 +65,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
             });
 
             setNewUpi("");
-            fetchStatus();
+            await fetchStatus(); // Wait for status to refresh database mapping state
         } catch (err) {
             const serverMsg = err.response?.data?.message || "Verification failed. Invalid UPI Account.";
             setUpiError(serverMsg);
@@ -109,12 +108,12 @@ const Dashboard = ({ refreshTrigger, username }) => {
         }
     };
 
+    // EARLY EXIT BLOCK: Check data availability BEFORE declaring dependent calculation properties
     if (!data) return <p style={{ color: 'white', textAlign: 'center' }}>Loading your rewards...</p>;
 
+    // Safe to extract now that data object presence is strictly guaranteed!
     const progressPercent = Math.min((data.currentBalance / data.threshold) * 100, 100);
     const canRedeem = data.currentBalance >= 30;
-
-    // Normalize multiple targets array from data mapping layer safely
     const userUpiList = data.upiIds || (data.upiId ? [data.upiId] : []);
 
     return (
@@ -155,7 +154,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                                     name="payoutTarget"
                                     value={id}
                                     checked={selectedUpi === id}
-                                    onChange={(e) => setSelectedUpi(e.target.value)}
+                                    onChange={() => setSelectedUpi(id)} // Direct string injection prevents binding drops
                                     style={{ marginRight: '8px' }}
                                 />
                                 <span style={{ fontSize: '13px', fontFamily: 'monospace' }}>{id}</span>

@@ -84,8 +84,10 @@ public class ReceiptController {
         receipt.setUserId(userId);
         receipt.setS3Key(s3Key);
         receipt.setStatus(ReceiptStatus.PROCESSING);
-        receipt = receiptRepository.save(receipt);
+        // Force immediate write-through verification using saveAndFlush
+        receipt = receiptRepository.saveAndFlush(receipt);
 
+        // Handoff key identifiers cleanly to prevent lazy-loading context drop anomalies
         receiptProcessor.processCashbackAsync(receipt.getId(), bucketName, s3Key);
 
         return ResponseEntity.ok(Map.of(
