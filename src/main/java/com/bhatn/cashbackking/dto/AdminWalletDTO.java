@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 public class AdminWalletDTO {
     private String userId;      // The Cognito ID (for the link)
-    private String fullName;    // The Name from the User entity
+    private String fullName;    /// The Name from the User entity
     private String email;
     private String upiId;
     private BigDecimal currentBalance;
