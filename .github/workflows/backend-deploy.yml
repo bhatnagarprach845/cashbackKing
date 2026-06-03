@@ -4,11 +4,7 @@ on:
   push:
     branches:
       - feature-DuplicateCollision
-    paths:
-      - 'src/**'
-      - '**/src/**'
-      - 'pom.xml'
-      - '**/pom.xml'
+
 jobs:
   trigger-aws-build:
     runs-on: ubuntu-latest
