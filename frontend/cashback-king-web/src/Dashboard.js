@@ -157,7 +157,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                                     onChange={() => setSelectedUpi(id)} // Direct string injection prevents binding drops
                                     style={{ marginRight: '8px' }}
                                 />
-                                <span style={{ fontSize: '13px', fontFamily: 'monospace' }}>{id}</span>
+                                <span style={{ fontSize: '13px', fontFamily: 'monospace', color: '#333', fontWeight: '500' }}>{id}</span>
                             </label>
                         ))}
                     </div>
@@ -192,16 +192,16 @@ const Dashboard = ({ refreshTrigger, username }) => {
                 <div style={styles.modalOverlay}>
                     <div style={styles.modalContent}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-                            <h3 style={{ margin: 0 }}>User Profile Details</h3>
+                            <h3 style={{ margin: 0, color: '#333' }}>User Profile Details</h3>
                             <button onClick={() => { setShowProfileModal(false); setUpiError(""); }} style={styles.closeModalBtn}>✕</button>
                         </div>
 
                         <div style={styles.infoBlock}>
-                            <p><strong>Name:</strong> {data.name || username}</p>
-                            <p><strong>Email:</strong> {data.email || 'N/A'}</p>
+                            <p style={{ color: '#333', margin: '4px 0' }}><strong style={{ color: '#555' }}>Name:</strong> {data.name || username}</p>
+                            <p style={{ color: '#333', margin: '4px 0' }}><strong style={{ color: '#555' }}>Email:</strong> {data.email || 'N/A'}</p>
                         </div>
 
-                        <h4 style={{ textAlign: 'left', margin: '15px 0 5px 0' }}>Registered Handles:</h4>
+                        <h4 style={{ textAlign: 'left', margin: '15px 0 5px 0', color: '#333' }}>Registered Handles:</h4>
                         <div style={styles.upiScrollContainer}>
                             {userUpiList.length === 0 ? (
                                 <p style={{ fontSize: '12px', color: '#999' }}>No payment routing added yet.</p>
@@ -214,7 +214,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
 
                         <hr style={{ border: '0', borderTop: '1px solid #eee', margin: '15px 0' }} />
 
-                        <h4 style={{ textAlign: 'left', margin: '0 0 5px 0' }}>Link Another UPI ID:</h4>
+                        <h4 style={{ textAlign: 'left', margin: '0 0 5px 0', color: '#333' }}>Link Another UPI ID:</h4>
                         <input
                             placeholder="e.g. name@okaxis"
                             value={newUpi}
@@ -242,25 +242,25 @@ const Dashboard = ({ refreshTrigger, username }) => {
 };
 
 const styles = {
-    card: { padding: '20px', border: '1px solid #ddd', borderRadius: '12px', maxWidth: '400px', margin: '20px auto', backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-    profileNavBtn: { backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '20px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
+    card: { padding: '20px', border: '1px solid #ddd', borderRadius: '12px', maxWidth: '400px', margin: '20px auto', backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: '#333' },
+    profileNavBtn: { backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '20px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#333' },
     balance: { fontSize: '28px', fontWeight: 'bold', margin: '10px 0', color: '#28a745' },
     progressBase: { width: '100%', height: '8px', backgroundColor: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' },
     progressBar: { height: '100%', transition: 'width 0.5s ease' },
     message: { fontSize: '12px', color: '#666', marginTop: '5px' },
     selectorWrapper: { textAlign: 'left', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '6px' },
-    radioLabel: { display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' },
+    radioLabel: { display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s', color: '#333' },
     redeemContainer: { display: 'flex', gap: '8px', marginTop: '15px' },
-    redeemInput: { flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', outline: 'none' },
+    redeemInput: { flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', outline: 'none', color: '#333', backgroundColor: '#fff' },
     redeemBtn: { color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', fontWeight: 'bold' },
     allBtn: { backgroundColor: '#007bff', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' },
     modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalContent: { backgroundColor: 'white', padding: '25px', borderRadius: '15px', width: '340px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
+    modalContent: { backgroundColor: 'white', padding: '25px', borderRadius: '15px', width: '340px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', color: '#333' },
     closeModalBtn: { background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', color: '#888' },
-    infoBlock: { textAlign: 'left', backgroundColor: '#f8f9fa', padding: '10px 15px', borderRadius: '8px', fontSize: '13px', lineHeight: '1.6' },
+    infoBlock: { textAlign: 'left', backgroundColor: '#f8f9fa', padding: '12px 15px', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' },
     upiScrollContainer: { display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '100px', overflowY: 'auto' },
-    upiBadge: { textAlign: 'left', fontSize: '12px', padding: '6px 10px', backgroundColor: '#f1f3f4', borderRadius: '4px', fontFamily: 'monospace' },
-    input: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', boxSizing: 'border-box' },
+    upiBadge: { textAlign: 'left', fontSize: '13px', padding: '8px 12px', backgroundColor: '#f1f3f4', borderRadius: '6px', fontFamily: 'monospace', color: '#333', fontWeight: '500' },
+    input: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', boxSizing: 'border-box', color: '#333', backgroundColor: '#fff' },
     errorText: { color: '#dc3545', display: 'block', textAlign: 'left', marginTop: '4px', fontSize: '11px' },
     submitBtn: { width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }
 };
