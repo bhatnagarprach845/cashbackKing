@@ -158,23 +158,42 @@ public class ReceiptController {
         String email = jwt.getClaimAsString("email");
         String targetUpi = requestBody.get("upiId");
 
+        // Extract name parameter sent from Cognito or fallback tracking layers
+        String customerName = requestBody.get("name");
+        if (customerName == null || customerName.isBlank()) {
+            customerName = jwt.getClaimAsString("name"); // Fallback check to Cognito JWT claims tokens
+        }
+        if (customerName == null || customerName.isBlank()) {
+            customerName = "Valued Member"; // Absolute safe operational fallback string string
+        }
+
         if (targetUpi == null || targetUpi.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "UPI ID string is required."));
         }
 
-        try {
-            User user = userRepository.findById(cognitoId)
-                    .orElse(User.builder().cognitoId(cognitoId).email(email).build());
+        log.info("Registering UPI ID request for User: {}, Name: {}, Target: {}", cognitoId, customerName, targetUpi);
 
-            // Core Update: Temporarily bind string context to evaluate validation
-            String oldDefaultUpi = user.getUpiId();
+        try {
+            // Fetch existing profile or construct a stable new user baseline
+            User user = userRepository.findById(cognitoId)
+                    .orElseGet(() -> User.builder()
+                            .cognitoId(cognitoId)
+                            .email(email)
+                            .name(requestBody.getOrDefault("name", "Valued Member"))
+                            .build());
+
+            // Synchronize name properties to guarantee Razorpay contact payloads never hold a null pointer
+            if (user.getName() == null || user.getName().isBlank()) {
+                user.setName(customerName);
+            }
+
+            // Temporarily bind active string to pass down to our sandbox/live validation checker pipelines
             user.setUpiId(targetUpi);
 
-            // Directly validates via your updated Razorpay /items/validate/vpa endpoint
+            // Executes validation rules safely (incorporating your new sandbox mocking test keys bypass checks!)
             payoutService.getOrCreateFundAccountId(user);
 
             // Reaches here only if validated successfully
-            // Initialize array tracking if using a list model mapped to User layout
             if (user.getUpiIds() == null) {
                 user.setUpiIds(new ArrayList<>());
             }
@@ -182,21 +201,24 @@ public class ReceiptController {
                 user.getUpiIds().add(targetUpi);
             }
 
-            // Set newly verified handle as current operational selection route
+            // Explicitly set verified handle choice as current operational routing target selection
             user.setSelectedUpi(targetUpi);
-            userRepository.save(user);
+
+            // Persist the complete record changes back to PostgreSQL
+            User savedUser = userRepository.save(user);
+            log.info("UPI ID successfully validated and written to DB for user profile row: {}", savedUser.getCognitoId());
 
             return ResponseEntity.ok(Map.of("message", "UPI ID verified and linked successfully!"));
 
         } catch (IllegalArgumentException e) {
-            log.warn("VPA validation rejected by Razorpay: {}", e.getMessage());
+            log.warn("VPA validation rejected by structural validation layer logic: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            log.error("Internal profile sync breakdown", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Validation processing fault. Try again."));
+            log.error("CRITICAL EXCEPTION inside /addUpiId processing loop logic tracing:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Validation processing fault. Detail: " + e.getMessage()));
         }
     }
-
     /**
      * 3. Payout Status (Real-time Dashboard Data)
      */
