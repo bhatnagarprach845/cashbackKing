@@ -9,6 +9,7 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,14 @@ public class ReceiptProcessor {
     private final BillAnalyzer billAnalyzer;
     private final S3Client s3Client;
 
+    /**
+     * FIX (High): Cashback rate is now configurable via application.properties.
+     * Previously hardcoded to 1 (100%) with a "testing purpose" comment.
+     * Default is 0.03 (3%) — override with cashback.rate=0.05 etc.
+     */
+    @Value("${cashback.rate:0.03}")
+    private BigDecimal cashbackRate;
+
     @Async
     @Transactional
     public void processCashbackAsync(Long receiptId, String bucket, String key) {
@@ -46,25 +55,28 @@ public class ReceiptProcessor {
         try {
             byte[] imageBytes = downloadFromS3(bucket, key);
 
-            // 1. FRAUD CHECK: EXIF Metadata Validation
+            // FIX (High): EXIF check now flags for review instead of outright rejecting.
+            // Legitimate receipts from banking apps, email screenshots, or PDF-to-image
+            // conversions have no camera EXIF and were previously silently rejected.
+            // They are now queued for manual review instead.
             if (!isAuthenticCapture(imageBytes)) {
-                rejectReceipt(receipt, "FRAUD_ALERT: Invalid EXIF / AI Generated metadata signature missing.");
+                log.warn("EXIF data absent or incomplete for receipt {}. Flagging for manual review.", receiptId);
+                receipt.setStatus(ReceiptStatus.FLAGGED_FOR_REVIEW);
+                receipt.setItems(new java.util.ArrayList<>());
+                receiptRepository.save(receipt);
                 return;
             }
 
             ExtractionResult result = billAnalyzer.analyze(imageBytes);
 
-            // Map Top-Level Data
             receipt.setMerchantName(result.getMerchantName().toUpperCase().trim());
             receipt.setTotalAmount(result.getTotalAmount());
             receipt.setPurchaseDate(result.getPurchaseDate());
 
             if (result.getLineItems() != null) {
-                // Defensive Initialization Barrier
                 if (receipt.getItems() == null) {
                     receipt.setItems(new java.util.ArrayList<>());
                 }
-
                 result.getLineItems().forEach(dto -> {
                     ReceiptItem item = new ReceiptItem();
                     item.setDescription(dto.getDescription());
@@ -75,7 +87,6 @@ public class ReceiptProcessor {
                 });
             }
 
-            // 2. FRAUD CHECK: Line-Item Math Recalculation
             if (!verifyReceiptMath(receipt)) {
                 rejectReceipt(receipt, "FRAUD_ALERT: Total amount mismatched during line-item mathematical validation.");
                 return;
@@ -95,11 +106,8 @@ public class ReceiptProcessor {
         String currentFingerprint = calculateFingerprintHash(receipt);
         receipt.setFingerprintHash(currentFingerprint);
 
-        // OPTIMIZATION & BUG FIX PIPELINE:
-        // Check if the hash matches an existing receipt first
         List<Receipt> matchingReceipts = receiptRepository.findByFingerprintHash(currentFingerprint);
 
-        // 2. Filter out the current receipt row we are actively evaluating right now
         Optional<Receipt> trueDuplicateOpt = matchingReceipts.stream()
                 .filter(existing -> !existing.getId().equals(receipt.getId()))
                 .findFirst();
@@ -107,35 +115,35 @@ public class ReceiptProcessor {
         if (trueDuplicateOpt.isPresent()) {
             Receipt existingReceipt = trueDuplicateOpt.get();
 
-            // Case A: Collision belongs to a DIFFERENT user -> Fraud Review Track
             if (!existingReceipt.getUserId().equals(receipt.getUserId())) {
-                log.warn("Prachi :: CRITICAL FRAUD ALERT! User {} uploaded a receipt identical to User {}",
+                log.warn("CRITICAL FRAUD ALERT: User {} uploaded a receipt identical to User {}",
                         receipt.getUserId(), existingReceipt.getUserId());
-
                 receipt.setStatus(ReceiptStatus.FLAGGED_FOR_REVIEW);
-                // Clear items collection so Cascade rules don't persist duplicated layout details
                 receipt.setItems(new java.util.ArrayList<>());
                 receiptRepository.save(receipt);
                 return;
-            }
-
-            // Case B: Collision belongs to the SAME user (An old separate physical bill submission)
-            else {
+            } else {
                 rejectReceipt(receipt, "FRAUD_ALERT: Identity collision. Bill has already been processed by this account.");
                 return;
             }
         }
 
-        // Tier C Standby Check: If hash was pristine but deep sub-items conflict
         if (isDuplicate(receipt)) {
             rejectReceipt(receipt, "FRAUD_ALERT: Deep item matches indicate duplicated receipt content profiles.");
             return;
         }
 
-        // 3% Cashback Calculation (Kept your testing logic multiplier completely intact)
+        // FIX (High): Use the injected cashbackRate (default 3%) instead of the
+        // hardcoded BigDecimal("1") that was awarding 100% of the receipt total.
         BigDecimal cashbackAmount = receipt.getTotalAmount()
-                .multiply(new BigDecimal("1")) // testing purpose-- prachi
+                .multiply(cashbackRate)
                 .setScale(2, RoundingMode.HALF_UP);
+
+        log.info("Awarding cashback of ₹{} ({}% of ₹{}) for receipt {}",
+                cashbackAmount,
+                cashbackRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString(),
+                receipt.getTotalAmount(),
+                receipt.getId());
 
         UserWallet wallet = walletRepository.findByUserIdForUpdate(receipt.getUserId())
                 .orElseGet(() -> UserWallet.builder().userId(receipt.getUserId()).build());
@@ -149,7 +157,8 @@ public class ReceiptProcessor {
                 .amountAwarded(cashbackAmount)
                 .processedAt(LocalDateTime.now())
                 .status(CashbackTransaction.TransactionStatus.COMPLETED)
-                .remarks("3% reward: " + receipt.getMerchantName())
+                .remarks(cashbackRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString()
+                        + "% reward: " + receipt.getMerchantName())
                 .build();
         transactionRepository.save(tx);
 
@@ -175,16 +184,14 @@ public class ReceiptProcessor {
             }
             return hexString.toString();
         } catch (Exception e) {
-            log.error("Prachi :: SHA-256 calculation exception: ", e);
+            log.error("SHA-256 calculation exception: ", e);
             return "ERROR_" + System.currentTimeMillis();
         }
     }
 
     private void rejectReceipt(Receipt receipt, String reason) {
-        log.warn("Prachi :: {} for User: {}", reason, receipt.getUserId());
+        log.warn("{} for User: {}", reason, receipt.getUserId());
         receipt.setStatus(ReceiptStatus.REJECTED);
-
-        // Core Fix: Break the cascade chain safely by removing the tracking reference pointer entirely
         receipt.setItems(new java.util.ArrayList<>());
         receiptRepository.save(receipt);
     }
@@ -195,7 +202,7 @@ public class ReceiptProcessor {
             ExifIFD0Directory exifDir = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
 
             if (exifDir == null) {
-                log.warn("Prachi :: EXIF directory completely absent. Flagging as potential web screenshot/AI render.");
+                log.warn("EXIF directory absent. Possible web screenshot or AI render.");
                 return false;
             }
 
@@ -203,15 +210,16 @@ public class ReceiptProcessor {
             String cameraModel = exifDir.getString(ExifIFD0Directory.TAG_MODEL);
 
             if (cameraMake == null || cameraModel == null) {
-                log.warn("Prachi :: Camera Hardware identity elements null. Flagging metadata missing.");
+                log.warn("Camera hardware identity elements null. EXIF metadata incomplete.");
                 return false;
             }
 
-            log.info("Prachi :: EXIF verification success. Capture device identified: {} {}", cameraMake, cameraModel);
+            log.info("EXIF verification success. Capture device: {} {}", cameraMake, cameraModel);
             return true;
         } catch (Exception e) {
-            log.warn("Prachi :: Failed to inspect EXIF tracking vectors. Bypassing fallback context safely.");
-            return true;
+            // If we can't read EXIF at all (e.g. PNG, BMP), treat as unverifiable rather than auto-reject.
+            log.warn("Failed to inspect EXIF metadata. Treating as unverifiable.");
+            return false;
         }
     }
 
@@ -231,21 +239,19 @@ public class ReceiptProcessor {
         boolean mathIsValid = variance.compareTo(new BigDecimal("5.00")) <= 0;
 
         if (!mathIsValid) {
-            log.error("Prachi :: Math verification breakdown. Invoice explicitly listed ₹{}, computed line summary ₹{}",
+            log.error("Math verification failed. Invoice total ₹{}, computed total ₹{}",
                     receipt.getTotalAmount(), calculatedTotal);
         }
         return mathIsValid;
     }
 
     private boolean isDuplicate(Receipt receipt) {
-        // 1. Safe Fallback: If no items were extracted by Textract, treat the receipt as unique if the top-level hash wasn't found
         if (receipt.getItems() == null || receipt.getItems().isEmpty()) {
-            log.info("Prachi :: No line items found to analyze. Relying completely on pristine hash uniqueness states.");
+            log.info("No line items found. Relying on hash uniqueness.");
             return false;
         }
 
         int matchedItemsCount = 0;
-
         for (ReceiptItem newItem : receipt.getItems()) {
             boolean itemWasSeenBefore = receiptRepository.existsByDeepCheck(
                     receipt.getId(),
@@ -255,16 +261,13 @@ public class ReceiptProcessor {
                     newItem.getDescription(),
                     newItem.getUnitPrice()
             );
-
             if (itemWasSeenBefore) {
                 matchedItemsCount++;
             }
         }
 
-        // 2. Clear Definition: Only flag as a deep duplicate if more than 75% of individual line items match
-        // an existing transaction under this exact merchant, total, and date context.
         double duplicateThresholdRatio = (double) matchedItemsCount / receipt.getItems().size();
-        log.info("Prachi :: Line items match density calculated at: {}%", duplicateThresholdRatio * 100);
+        log.info("Line items match density: {}%", duplicateThresholdRatio * 100);
 
         return duplicateThresholdRatio >= 0.75;
     }

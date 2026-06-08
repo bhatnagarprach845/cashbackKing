@@ -27,12 +27,20 @@ public class SecurityConfig {
                 .cors(AbstractHttpConfigurer::disable) // CorsFilter above handles it
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/debug/**").permitAll() // ← add this
+                        // Public endpoints — order: most specific first
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/users/**", "/api/v1/payout-status", "/api/v1/**").authenticated()
-                        //.requestMatchers("/api/v1/users/**", "/api/v1/receipts/**").authenticated()
+                        .requestMatchers("/api/v1/debug/**").permitAll()
                         .requestMatchers("/api/v1/version").permitAll()
+                        .requestMatchers("/api/v1/webhooks/**").permitAll()
+
+                        // FIX: Admin rule MUST come before the wildcard /api/v1/** rule.
+                        // Previously the wildcard matched first, so any authenticated user
+                        // could reach admin endpoints regardless of their role.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                        // All other API endpoints require authentication
+                        .requestMatchers("/api/v1/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth
