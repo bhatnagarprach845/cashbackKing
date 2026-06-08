@@ -29,7 +29,10 @@ public class RazorpayWebhookController {
     private final CashbackTransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
 
-    @Value("${razorpay.webhook.secret}")
+    // The colon at the end means "default to empty string if env var is not set".
+    // This allows the app to start locally without the webhook secret configured.
+    // In production, RAZORPAY_WEBHOOK_SECRET must always be set.
+    @Value("${razorpay.webhook.secret:}")
     private String webhookSecret;
 
     /**
@@ -149,12 +152,24 @@ public class RazorpayWebhookController {
     /**
      * Verifies the HMAC-SHA256 signature that Razorpay sends with every webhook.
      * Razorpay signs the raw request body with the webhook secret.
+     *
+     * If RAZORPAY_WEBHOOK_SECRET is not configured (e.g. local dev before the
+     * Razorpay webhook is set up), verification is skipped with a warning.
+     * NEVER leave the secret unset in production.
      */
     private boolean isSignatureValid(String payload, String signature) {
+        // Dev/test bypass: if no secret is configured, skip verification but warn loudly
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            log.warn("RAZORPAY_WEBHOOK_SECRET is not set — skipping signature verification. " +
+                    "Set this variable before going to production.");
+            return true;
+        }
+
         if (signature == null || signature.isBlank()) {
             log.warn("No X-Razorpay-Signature header present in webhook request.");
             return false;
         }
+
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(
