@@ -179,7 +179,7 @@ const Dashboard = ({ refreshTrigger, username }) => {
                             backgroundColor: (parseFloat(redeemAmount) >= 30 && data.currentBalance >= 30) ? '#28a745' : '#ccc'
                         }}
                     >
-                        Redeem
+                        {isRedeeming ? 'Processing...' : 'Redeem'}
                     </button>
                     <button onClick={() => handleRedeem(true)} disabled={isRedeeming || !canRedeem} style={styles.allBtn}>
                         All
