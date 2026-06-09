@@ -199,45 +199,46 @@ const Dashboard = ({ refreshTrigger, username }) => {
                     </p>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {data.recentTransactions.map((tx) => (
-                            <div key={tx.id || Math.random()} style={styles.txRow}>
-                                <div style={{ textAlign: 'left' }}>
-                                    <span style={{
-                                        ...styles.txTypeBadge,
-                                        backgroundColor: tx.type === 'CREDIT' ? '#e8f5e9' : '#ffebee',
-                                        color: tx.type === 'CREDIT' ? '#28a745' : '#dc3545'
-                                    }}>
-                                        {tx.type || 'CREDIT'}
-                                    </span>
-                                    <div style={{ fontSize: '11px', color: '#777', marginTop: '6px' }}>{tx.date || 'Recent'}</div>
-                                </div>
+                        {data.recentTransactions.map((tx) => {
+                            // 🧠 INTERCEPTOR: Handle both raw entities and clean DTO structure fields
+                            const rawAmount = tx.amountAwarded !== undefined ? tx.amountAwarded : tx.amount;
+                            const isCredit = tx.type ? tx.type === 'CREDIT' : parseFloat(rawAmount || 0) >= 0;
+                            const displayType = isCredit ? 'CREDIT' : 'DEBIT';
+                            const displayDate = tx.date || (tx.processedAt ? tx.processedAt.split('T')[0] : 'Recent');
 
-                                <div style={{ textAlign: 'right' }}>
-                                    {/* 💳 Corrected dynamic values row cell */}
-                                    <span style={{
-                                        fontSize: '15px',
-                                        fontWeight: 'bold',
-                                        color: tx.type === 'CREDIT' ? '#28a745' : '#dc3545'
-                                    }}>
-                                        {tx.type === 'CREDIT' ? '+' : '-'} ₹{
-                                            tx.amount && typeof tx.amount === 'object' && tx.amount.amount !== undefined
-                                                ? parseFloat(tx.amount.amount).toFixed(2)
-                                                : tx.amount !== undefined && tx.amount !== null
-                                                    ? parseFloat(tx.amount).toFixed(2)
-                                                    : '0.00'
-                                        }
-                                    </span>
-                                    <div style={{
-                                        fontSize: '11px',
-                                        fontWeight: '500',
-                                        color: tx.status === 'COMPLETED' ? '#28a745' : '#ffc107',
-                                        marginTop: '4px'
-                                    }}>
-                                        {tx.status || 'COMPLETED'}
+                            return (
+                                <div key={tx.id || Math.random()} style={styles.txRow}>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <span style={{
+                                            ...styles.txTypeBadge,
+                                            backgroundColor: isCredit ? '#e8f5e9' : '#ffebee',
+                                            color: isCredit ? '#28a745' : '#dc3545'
+                                        }}>
+                                            {displayType}
+                                        </span>
+                                        <div style={{ fontSize: '11px', color: '#777', marginTop: '6px' }}>{displayDate}</div>
+                                    </div>
+
+                                    <div style={{ textAlign: 'right' }}>
+                                        <span style={{
+                                            fontSize: '15px',
+                                            fontWeight: 'bold',
+                                            color: isCredit ? '#28a745' : '#dc3545'
+                                        }}>
+                                            {isCredit ? '+' : '-'} ₹{Math.abs(parseFloat(rawAmount || 0)).toFixed(2)}
+                                        </span>
+                                        <div style={{
+                                            fontSize: '11px',
+                                            fontWeight: '500',
+                                            color: (tx.status === 'COMPLETED' || tx.status === 'APPROVED') ? '#28a745' : '#ffc107',
+                                            marginTop: '4px'
+                                        }}>
+                                            {tx.status || 'COMPLETED'}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -321,7 +322,7 @@ const styles = {
 
     // Ledger card styles
     historyCard: { padding: '20px', border: '1px solid #ddd', borderRadius: '12px', maxWidth: '400px', margin: '15px auto', backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: '#333' },
-    txRow: { display: 'flex', justify_content: 'space-between', justifyContent: 'space-between', alignItems: 'center', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #eee' },
+    txRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #eee' },
     txTypeBadge: { fontSize: '10px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px', letterSpacing: '0.5px' }
 };
 

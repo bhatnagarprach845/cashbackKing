@@ -1,5 +1,6 @@
 package com.bhatn.cashbackking.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -28,10 +29,19 @@ public class PayoutStatusResponse {
     @Data
     @Builder
     public static class TransactionDTO {
+        @JsonProperty("id")
         private Long id;
+
+        @JsonProperty("amount") // 🧠 CRITICAL: Explicitly forces Jackson to output the key name as "amount"
         private BigDecimal amount;
+
+        @JsonProperty("type")
         private String type;
+
+        @JsonProperty("status")
         private String status;
+
+        @JsonProperty("date")
         private String date;
     }
 }
