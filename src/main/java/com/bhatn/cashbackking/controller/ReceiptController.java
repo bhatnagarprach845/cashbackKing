@@ -297,7 +297,17 @@ public class ReceiptController {
         BigDecimal minThreshold = new BigDecimal("30.00");
 
         String explicitTargetUpi = request.get("targetUpi") != null ? request.get("targetUpi").toString() : null;
-        log.info("Processing redemption request for user: {} to payout destination: {}", userId, explicitTargetUpi);
+        log.info("Processing redemption lock request for user: {} to target: {}", userId, explicitTargetUpi);
+
+        // 🔒 RULE 1: BLOCK CONCURRENT REQUESTS IF A PAYOUT IS ALREADY PENDING
+        // Assuming your Status Enum is TransactionStatus.PENDING (or use the String "PENDING")
+        boolean hasPending = transactionRepository.existsByUserIdAndStatus(userId, CashbackTransaction.TransactionStatus.PENDING);
+        if (hasPending) {
+            log.warn("Redemption blocked for user {}: A previous payout request is still processing.", userId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "error", "Payout Blocked: You have a pending redemption in progress. Please wait until it completes."
+            ));
+        }
 
         try {
             User user = userRepository.findById(userId)
@@ -310,14 +320,19 @@ public class ReceiptController {
                     ? new BigDecimal(request.get("amount").toString())
                     : wallet.getCurrentBalance();
 
+            // 🛑 RULE 2: ENFORCE MINIMUM LIMITS
             if (amountToRedeem.compareTo(minThreshold) < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                         "error", "Minimum redemption amount is ₹30. Current request: ₹" + amountToRedeem
                 ));
             }
 
-            if (wallet.getCurrentBalance().compareTo(amountToRedeem) < 0) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Insufficient wallet balance"));
+            // 🛑 RULE 3: ABSOLUTE NEGATIVE BALANCE GUARD
+            if (wallet.getCurrentBalance().compareTo(amountToRedeem) < 0 || wallet.getCurrentBalance().compareTo(BigDecimal.ZERO) <= 0) {
+                log.warn("Rejecting deficit payout attempt! Balance: {}, Requested: {}", wallet.getCurrentBalance(), amountToRedeem);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                        "error", "Insufficient Funds: Your available rewards balance is too low for this redemption."
+                ));
             }
 
             if (explicitTargetUpi != null && !explicitTargetUpi.isBlank()) {
@@ -326,11 +341,12 @@ public class ReceiptController {
                 userRepository.save(user);
             }
 
+            // Safe to hand off to processing now that all security gates have passed successfully!
             walletService.redeemCashback(userId, amountToRedeem);
-            return ResponseEntity.ok(Map.of("message", "Success! ₹" + amountToRedeem + " initiated."));
+            return ResponseEntity.ok(Map.of("message", "Success! ₹" + amountToRedeem + " payout initiated successfully."));
 
         } catch (Exception e) {
-            log.error("Redeem endpoint processing collapse", e);
+            log.error("Redeem endpoint lock failure processing collapse:", e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }

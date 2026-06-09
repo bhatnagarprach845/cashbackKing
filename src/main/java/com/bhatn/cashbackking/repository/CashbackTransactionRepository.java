@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.bhatn.cashbackking.entity.CashbackTransaction.TransactionStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,6 +51,9 @@ public interface CashbackTransactionRepository extends JpaRepository<CashbackTra
     Optional<CashbackTransaction> findByPayoutId(String payoutId);
 
     Optional<CashbackTransaction> findByRazorpayPayoutId(String razorpayPayoutId);
+
+    // 🔒 THE GATEKEEPER: Checks if a user already has an unapproved payout running
+    boolean existsByUserIdAndStatus(String userId, TransactionStatus status);
 
 
 
