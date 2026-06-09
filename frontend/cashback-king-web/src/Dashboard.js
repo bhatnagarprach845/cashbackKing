@@ -213,12 +213,19 @@ const Dashboard = ({ refreshTrigger, username }) => {
                                 </div>
 
                                 <div style={{ textAlign: 'right' }}>
+                                    {/* 💳 Corrected dynamic values row cell */}
                                     <span style={{
                                         fontSize: '15px',
                                         fontWeight: 'bold',
                                         color: tx.type === 'CREDIT' ? '#28a745' : '#dc3545'
                                     }}>
-                                        {tx.type === 'CREDIT' ? '+' : '-'} ₹{typeof tx.amount === 'number' ? tx.amount.toFixed(2) : parseFloat(tx.amount || 0).toFixed(2)}
+                                        {tx.type === 'CREDIT' ? '+' : '-'} ₹{
+                                            tx.amount && typeof tx.amount === 'object' && tx.amount.amount !== undefined
+                                                ? parseFloat(tx.amount.amount).toFixed(2)
+                                                : tx.amount !== undefined && tx.amount !== null
+                                                    ? parseFloat(tx.amount).toFixed(2)
+                                                    : '0.00'
+                                        }
                                     </span>
                                     <div style={{
                                         fontSize: '11px',
