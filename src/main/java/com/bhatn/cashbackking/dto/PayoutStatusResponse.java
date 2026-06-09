@@ -1,6 +1,5 @@
 package com.bhatn.cashbackking.dto;
 
-import com.bhatn.cashbackking.entity.CashbackTransaction;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -23,8 +22,8 @@ public class PayoutStatusResponse {
     private List<String> upiIds; // Collection array of all registered UPI handles
     private String selectedUpi; // The target currently active via dashboard radio selection
 
-    // Ledger history
-    private List<CashbackTransaction> recentTransactions;
+    // Ledger history - UPDATED to use TransactionDTO instead of raw entity class
+    private List<TransactionDTO> recentTransactions;
 
     @Data
     @Builder

@@ -150,7 +150,6 @@ public class ReceiptController {
 
     /**
      * New Link Verification Action: Matches frontend handleAddNewUpiSubmit()
-     * Enhanced with a front-line guard to catch simulation flags before hitting cached records.
      */
     @PostMapping("/addUpiId")
     public ResponseEntity<?> addUpiId(
@@ -181,7 +180,6 @@ public class ReceiptController {
         }
         // ========================================================
 
-        // Extract name parameter sent from frontend layout or fallback tracking layers
         String customerName = requestBody.get("name");
         if (customerName == null || customerName.isBlank()) {
             customerName = jwt.getClaimAsString("name");
@@ -193,7 +191,6 @@ public class ReceiptController {
         log.info("Registering UPI ID request for User: {}, Name: {}, Target: {}", cognitoId, customerName, targetUpi);
 
         try {
-            // Fetch existing profile or construct a stable new user baseline
             User user = userRepository.findById(cognitoId)
                     .orElseGet(() -> User.builder()
                             .cognitoId(cognitoId)
@@ -201,18 +198,13 @@ public class ReceiptController {
                             .name(requestBody.getOrDefault("name", "Valued Member"))
                             .build());
 
-            // Guarantee Razorpay contact payloads never hold a null pointer
             if (user.getName() == null || user.getName().isBlank()) {
                 user.setName(customerName);
             }
 
-            // Bind active string to pass down to our validation checker pipelines
             user.setUpiId(targetUpi);
-
-            // Executes validation rules safely
             payoutService.getOrCreateFundAccountId(user);
 
-            // Reaches here only if validated successfully
             if (user.getUpiIds() == null) {
                 user.setUpiIds(new ArrayList<>());
             }
@@ -220,10 +212,7 @@ public class ReceiptController {
                 user.getUpiIds().add(targetUpi);
             }
 
-            // Explicitly set verified handle choice as current operational routing target selection
             user.setSelectedUpi(targetUpi);
-
-            // Persist the complete record changes back to PostgreSQL
             User savedUser = userRepository.save(user);
             log.info("UPI ID successfully validated and written to DB for user profile row: {}", savedUser.getCognitoId());
 
@@ -240,7 +229,7 @@ public class ReceiptController {
     }
 
     /**
-     * 3. Payout Status (Real-time Dashboard Data)
+     * 3. Payout Status (Real-time Dashboard Data) - DTO Map Layer Configured
      */
     @GetMapping("/payout-status")
     public ResponseEntity<PayoutStatusResponse> getPayoutStatus(@AuthenticationPrincipal Jwt jwt) {
@@ -262,12 +251,23 @@ public class ReceiptController {
                         .currentBalance(BigDecimal.ZERO)
                         .build());
 
+        // Pull raw database records
         List<CashbackTransaction> history = transactionRepository.findByUserIdOrderByProcessedAtDesc(userId);
+
+        // Convert the database entries cleanly into the frontend's TransactionDTO structures
+        List<PayoutStatusResponse.TransactionDTO> mappedHistory = history.stream().map(tx ->
+                PayoutStatusResponse.TransactionDTO.builder()
+                        .id(tx.getId())
+                        .amount(tx.getAmountAwarded())
+                        .type(tx.getAmountAwarded().compareTo(BigDecimal.ZERO) >= 0 ? "CREDIT" : "DEBIT")
+                        .status(tx.getStatus() != null ? tx.getStatus().toString() : "COMPLETED")
+                        .date(tx.getProcessedAt() != null ? tx.getProcessedAt().toLocalDate().toString() : "")
+                        .build()
+        ).collect(Collectors.toList());
 
         BigDecimal threshold = new BigDecimal("30.00");
         BigDecimal needed = threshold.subtract(wallet.getCurrentBalance()).max(BigDecimal.ZERO);
 
-        // Core Alignment: Construct matching the fields requested by your Dashboard.js frontend
         PayoutStatusResponse response = PayoutStatusResponse.builder()
                 .name(user != null ? user.getName() : "Valued Member")
                 .email(user != null ? user.getEmail() : "")
@@ -276,11 +276,10 @@ public class ReceiptController {
                 .statusMessage(wallet.getCurrentBalance().compareTo(threshold) >= 0
                         ? "You are eligible for payout!"
                         : "₹" + needed + " more needed for payout")
-                // Map out array options + the active selection variable target
                 .upiId(user != null ? user.getUpiId() : null)
                 .upiIds(user != null ? user.getUpiIds() : List.of())
                 .selectedUpi(user != null ? user.getSelectedUpi() : null)
-                .recentTransactions(history)
+                .recentTransactions(mappedHistory) // Supplies the mapped DTO list
                 .build();
 
         return ResponseEntity.ok(response);
@@ -321,14 +320,12 @@ public class ReceiptController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Insufficient wallet balance"));
             }
 
-            // Ensure the user's entity parameters lock onto the target routing string before running the logic
             if (explicitTargetUpi != null && !explicitTargetUpi.isBlank()) {
                 user.setUpiId(explicitTargetUpi);
                 user.setSelectedUpi(explicitTargetUpi);
                 userRepository.save(user);
             }
 
-            // Execute processing lifecycle out to RazorpayX
             walletService.redeemCashback(userId, amountToRedeem);
             return ResponseEntity.ok(Map.of("message", "Success! ₹" + amountToRedeem + " initiated."));
 
