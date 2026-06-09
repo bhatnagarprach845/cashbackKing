@@ -187,6 +187,57 @@ const Dashboard = ({ refreshTrigger, username }) => {
                 </div>
             </div>
 
+            {/* ======================================================== */}
+                        {/* 📜 NEW ADDITION: DYNAMIC TRANSACTION LEDGER SECTION        */}
+                        {/* ======================================================== */}
+                        <div style={styles.historyCard}>
+                            <h3 style={{ color: '#333', margin: '0 0 15px 0', fontSize: '16px', textAlign: 'left' }}>
+                                Recent Activity
+                            </h3>
+
+                            {!data.recentTransactions || data.recentTransactions.length === 0 ? (
+                                <p style={{ fontSize: '13px', color: '#777', textAlign: 'center', margin: '20px 0' }}>
+                                    No transactions found yet. Upload a receipt to earn rewards!
+                                </p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {data.recentTransactions.map((tx) => (
+                                        <div key={tx.id} style={styles.txRow}>
+                                            <div style={{ textAlign: 'left' }}>
+                                                <span style={{
+                                                    ...styles.txTypeBadge,
+                                                    backgroundColor: tx.type === 'CREDIT' ? '#e8f5e9' : '#ffebee',
+                                                    color: tx.type === 'CREDIT' ? '#28a745' : '#dc3545'
+                                                }}>
+                                                    {tx.type}
+                                                </span>
+                                                <div style={{ fontSize: '11px', color: '#777', marginTop: '6px' }}>{tx.date}</div>
+                                            </div>
+
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{
+                                                    fontSize: '15px',
+                                                    fontWeight: 'bold',
+                                                    color: tx.type === 'CREDIT' ? '#28a745' : '#dc3545'
+                                                }}>
+                                                    {tx.type === 'CREDIT' ? '+' : '-'} ₹{tx.amount.toFixed(2)}
+                                                </span>
+                                                <div style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: '500',
+                                                    color: tx.status === 'COMPLETED' ? '#28a745' : '#ffc107',
+                                                    marginTop: '4px'
+                                                }}>
+                                                    {tx.status}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* ======================================================== */}
+
             {/* Profile Detail Management Modal */}
             {showProfileModal && (
                 <div style={styles.modalOverlay}>
@@ -262,7 +313,34 @@ const styles = {
     upiBadge: { textAlign: 'left', fontSize: '13px', padding: '8px 12px', backgroundColor: '#f1f3f4', borderRadius: '6px', fontFamily: 'monospace', color: '#333', fontWeight: '500' },
     input: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', boxSizing: 'border-box', color: '#333', backgroundColor: '#fff' },
     errorText: { color: '#dc3545', display: 'block', textAlign: 'left', marginTop: '4px', fontSize: '11px' },
-    submitBtn: { width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }
+    submitBtn: { width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' },
+    // Add these lines directly inside your styles object:
+        historyCard: {
+            padding: '20px',
+            border: '1px solid #ddd',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            margin: '15px auto',
+            backgroundColor: '#fff',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            color: '#333'
+        },
+        txRow: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #eee'
+        },
+        txTypeBadge: {
+            fontSize: '10px',
+            fontWeight: 'bold',
+            padding: '3px 8px',
+            borderRadius: '12px',
+            letterSpacing: '0.5px'
+        }
 };
 
 export default Dashboard;
